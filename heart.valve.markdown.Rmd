@@ -1,0 +1,110 @@
+---
+title: "Heart.valve.data"
+output:
+  html_document:
+    df_print: paged
+---
+# Library
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(dplyr)
+library(readr)
+```
+# Importing Data 
+```{r}
+file_path <- "/Users/alessandrorota/Desktop/LM - DATA SCIENCE/II anno/Data science lab in medicine/Big data in Healthcare/progetto/heart.valve.txt"
+heart.valve <- read_delim(file_path, delim = "\t")
+head(heart.valve)
+```
+
+```{r}
+dim(heart.valve)
+```
+Description of dataset variables:
+
+-   ***Paz.id***: patient identification number.
+
+-   ***log.lvmi***: natural logarithm of the “Left Ventricular Mass Index” (standardized) measured at baseline.
+
+-   ***fuyrs***: follow-up time from surgery, in years.
+
+-   ***status***: event indicator (1 = dead; 0 = censored).
+
+-   ***sex***: sex of the patient (0 = M; 1 = F).
+
+-   ***age***: age of the patient (years) at surgery.
+
+-   ***con.cabg***: presence of coronary bypass (1 = yes; 0 = no).
+
+-   ***creat***: pre-operative serum creatinine (µmol/mL).
+
+-   ***lv***: pre-operative left ventricular ejection fraction (1 = high, 2 = moderate, 3 = low).
+
+-   ***sten.reg.mix***: hemodynamics of the heart valve (1 = stenosis, 2 = regurgitation, 3 =
+mixed).
+
+
+```{r}
+str(heart.valve)
+```
+```{r}
+summary(heart.valve)
+```
+
+# Age distribution
+
+```{r}
+ggplot(heart.valve, aes(x = age)) +
+  geom_histogram(binwidth = 5, fill = "blue", color = "black") +
+  ggtitle("Distribuzione dell'età") +
+  xlab("Età") +
+  ylab("Frequenza")
+```
+#Correlation between variables
+
+
+```{r}
+cor_matrix <- cor(heart.valve, use = "complete.obs")
+print(cor_matrix)
+
+if (!require(corrplot)) {
+    install.packages("corrplot")
+    library(corrplot)
+}
+corrplot(cor_matrix, method = "circle")
+```
+
+
+## Left Ventricular Mass Index
+
+Il Left Ventricular Mass Index (LVMI) è un parametro clinico utilizzato per valutare la massa del ventricolo sinistro del cuore in relazione alla superficie corporea del paziente. È una misura importante nella diagnosi e nel monitoraggio di condizioni cardiache come l'ipertrofia ventricolare sinistra, che è un ispessimento delle pareti del ventricolo sinistro del cuore.
+
+```{r}
+ggplot(heart.valve, aes(x = factor(status), y = log.lvmi, fill = factor(status))) +
+  geom_boxplot() +
+  ggtitle("Boxplot di log.lvmi per Status") +
+  xlab("Status") +
+  ylab("log.lvmi") +
+  scale_fill_discrete(name = "Status")
+
+```
+
+```{r}
+ggplot(heart.valve, aes(x = age, y = log.lvmi)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", color = "red", se = FALSE) +
+  ggtitle("Scatter Plot: età vs log.lvmi") +
+  xlab("Età") +
+  ylab("log.lvmi")
+
+```
+
+
+
+
+
+
+
+
