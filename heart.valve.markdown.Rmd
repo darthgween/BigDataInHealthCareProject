@@ -1,9 +1,10 @@
 ---
-title: "Heart.valve.data"
+title: "data.data"
 output:
   html_document:
     df_print: paged
 ---
+
 # Library
 
 ```{r}
@@ -11,17 +12,40 @@ knitr::opts_chunk$set(echo = TRUE)
 library(ggplot2)
 library(dplyr)
 library(readr)
+library(survival)
+library(survminer)
+library(randomForestSRC)
+library(gbm)
+
+
+
 ```
-# Importing Data 
+
+# Importing Data
+
 ```{r}
-file_path <- "/Users/alessandrorota/Desktop/LM - DATA SCIENCE/II anno/Data science lab in medicine/Big data in Healthcare/progetto/heart.valve.txt"
-heart.valve <- read_delim(file_path, delim = "\t")
-head(heart.valve)
+
+setwd('~/Desktop/Data Science/Data Science Lab in Medicine/Big Data in Health Care/')
+file_path <- "heart.valve.txt"
+data <- read_delim(file_path, delim = "\t")
+head(data)
 ```
 
 ```{r}
-dim(heart.valve)
+
+#TO EVALUATE
+data$sex <- factor(data$sex, levels = c(0, 1), labels = c("Male", "Female"))
+data$con.cabg <- factor(data$con.cabg, levels = c(0, 1), labels = c("No", "Yes"))
+data$lv <- factor(data$lv, levels = c(1, 2, 3), labels = c("High", "Moderate", "Low"))
+data$sten.reg.mix <- factor(data$sten.reg.mix, levels = c(1, 2, 3), labels = c("Stenosis", "Regurgitation", "Mixed"))
+
 ```
+
+
+```{r}
+dim(data)
+```
+
 Description of dataset variables:
 
 -   ***Paz.id***: patient identification number.
@@ -42,31 +66,30 @@ Description of dataset variables:
 
 -   ***lv***: pre-operative left ventricular ejection fraction (1 = high, 2 = moderate, 3 = low).
 
--   ***sten.reg.mix***: hemodynamics of the heart valve (1 = stenosis, 2 = regurgitation, 3 =
-mixed).
-
+-   ***sten.reg.mix***: hemodynamics of the heart valve (1 = stenosis, 2 = regurgitation, 3 = mixed).
 
 ```{r}
-str(heart.valve)
+str(data)
 ```
+
 ```{r}
-summary(heart.valve)
+summary(data)
 ```
 
 # Age distribution
 
 ```{r}
-ggplot(heart.valve, aes(x = age)) +
+ggplot(data, aes(x = age)) +
   geom_histogram(binwidth = 5, fill = "blue", color = "black") +
   ggtitle("Distribuzione dell'età") +
   xlab("Età") +
   ylab("Frequenza")
 ```
+
 #Correlation between variables
 
-
 ```{r}
-cor_matrix <- cor(heart.valve, use = "complete.obs")
+cor_matrix <- cor(data, use = "complete.obs")
 print(cor_matrix)
 
 if (!require(corrplot)) {
@@ -76,13 +99,12 @@ if (!require(corrplot)) {
 corrplot(cor_matrix, method = "circle")
 ```
 
-
 ## Left Ventricular Mass Index
 
 Il Left Ventricular Mass Index (LVMI) è un parametro clinico utilizzato per valutare la massa del ventricolo sinistro del cuore in relazione alla superficie corporea del paziente. È una misura importante nella diagnosi e nel monitoraggio di condizioni cardiache come l'ipertrofia ventricolare sinistra, che è un ispessimento delle pareti del ventricolo sinistro del cuore.
 
 ```{r}
-ggplot(heart.valve, aes(x = factor(status), y = log.lvmi, fill = factor(status))) +
+ggplot(data, aes(x = factor(status), y = log.lvmi, fill = factor(status))) +
   geom_boxplot() +
   ggtitle("Boxplot di log.lvmi per Status") +
   xlab("Status") +
@@ -92,7 +114,7 @@ ggplot(heart.valve, aes(x = factor(status), y = log.lvmi, fill = factor(status))
 ```
 
 ```{r}
-ggplot(heart.valve, aes(x = age, y = log.lvmi)) +
+ggplot(data, aes(x = age, y = log.lvmi)) +
   geom_point(alpha = 0.5) +
   geom_smooth(method = "lm", color = "red", se = FALSE) +
   ggtitle("Scatter Plot: età vs log.lvmi") +
@@ -101,10 +123,218 @@ ggplot(heart.valve, aes(x = age, y = log.lvmi)) +
 
 ```
 
+# Models:
+
+```{r}
+univariate_models <- lapply(names(data)[-1], function(var) {
+  cox_model <- coxph(Surv(fuyrs, status) ~ data[[var]], data = data)
+  return(list(variable = var, model = cox_model))
+})
+
+```
+
+```{r}
+for (item in univariate_models) {
+  print(item$variable)
+  print(summary(item$model))
+  
+}
+
+```
+
+```{r}
+  print(univariate_models[[1]]$variable)
+  print(summary(univariate_models[[1]]$model))
+```
+
+```{r}
+  print(univariate_models[[2]]$variable)
+  print(summary(univariate_models[[2]]$model))
+```
 
 
+```{r}
+  print(univariate_models[[3]]$variable)
+  print(summary(univariate_models[[3]]$model))
+```
 
 
+```{r}
+  print(univariate_models[[4]]$variable)
+  print(summary(univariate_models[[4]]$model))
+```
 
 
+```{r}
+  print(univariate_models[[5]]$variable)
+  print(summary(univariate_models[[5]]$model))
+```
+
+
+```{r}
+  print(univariate_models[[6]]$variable)
+  print(summary(univariate_models[[6]]$model))
+```
+
+
+```{r}
+  print(univariate_models[[7]]$variable)
+  print(summary(univariate_models[[7]]$model))
+```
+
+
+```{r}
+  print(univariate_models[[8]]$variable)
+  print(summary(univariate_models[[8]]$model))
+```
+
+
+```{r}
+  print(univariate_models[[9]]$variable)
+  print(summary(univariate_models[[9]]$model))
+```
+
+## Base model
+
+```{r}
+base_model <- coxph(Surv(fuyrs, status) ~ sex + age + con.cabg + creat + lv + sten.reg.mix, data = data)
+summary(base_model)
+
+
+```
+The Cox proportional hazards model shows significant effects of age, coronary artery bypass grafting (con.cabg), left ventricular function (lv), and stenosis severity (sten.reg.mix) on survival time. 
+
+Sex and creatinine levels (creat) do not appear to significantly affect survival. 
+
+The model has moderate predictive accuracy (Concordance = 0.783) and overall good fit according to model fit tests. 
+
+
+```{r}
+# Evaluate the performance of the models
+# For calibration, discrimination, and Net Benefit, you can use specific methods like Kaplan-Meier curves, calibration plots, concordance index (C-index), and decision curve analysis (DCA).
+
+# Example of Kaplan-Meier curves for the base model
+ggsurvplot(survfit(base_model), data = data, risk.table = TRUE)
+
+```
+
+```{r}
+# Check the functional form of 'age' using Martingale residuals
+mart_resid_age <- resid(base_model, type = "martingale")
+plot(data$age, mart_resid_age, xlab = "Age", ylab = "Martingale residuals", main = "Martingale Residuals vs Age")
+abline(h = 0, col = "red")
+
+# Check the functional form of 'creat' using Martingale residuals
+mart_resid_creat <- resid(base_model, type = "martingale")
+plot(data$creat, mart_resid_creat, xlab = "Creatinine Levels", ylab = "Martingale residuals", main = "Martingale Residuals vs Creatinine Levels")
+abline(h = 0, col = "red")
+
+# Checking Proportional Hazards assumption
+# We use cox.zph function to perform the test
+ph_test <- cox.zph(base_model)
+print(ph_test)  # This will print the test results
+plot(ph_test)   # This plots the Schoenfeld residuals
+
+```
+
+```{r}
+# Prediction of event risk at a fixed time-point (e.g., 5 years) for three subjects
+# You can predict the survival probability for specific subjects using the predict function.
+
+predict(base_model, newdata = data.frame(sex = c(0, 1, 0), age = c(50, 60, 70), con.cabg = c(1, 0, 1), creat = c(1.2, 1.5, 1.3), lv = c(2, 3, 1), sten.reg.mix = c(1, 3, 2), log.lvmi = c(2.5, 3.0, 2.7)), type = "risk", times = 5)
+```
+
+## Augmented model
+
+```{r}
+augmented_model <- coxph(Surv(fuyrs, status) ~ sex + age + con.cabg + creat + lv + sten.reg.mix + log.lvmi, data = data)
+
+summary(augmented_model)
+
+```
+
+
+The augmented model includes log.lvmi as a new predictor, significantly improving predictive accuracy and model fit compared to the base model. Notably, con.cabg and sten.reg.mix show stronger effects, while log.lvmi emerges as a significant predictor. The concordance value (0.797) is slightly higher than the base_model so we can conclude that the augmented one with the new covariate log.lvmi is a better model
+
+
+```{r}
+# Evaluate functional form of continuous variables using Martingale residuals
+# Check for 'log.lvmi'
+plot(resid(augmented_model, type = "martingale") ~ data$log.lvmi, 
+     xlab = "Log LVMi", ylab = "Martingale Residuals", main = "Martingale Residuals vs Log LVMi")
+abline(h = 0, col = "red")
+
+# Check for 'age'
+plot(resid(augmented_model, type = "martingale") ~ data$age, 
+     xlab = "Age", ylab = "Martingale Residuals", main = "Martingale Residuals vs Age")
+abline(h = 0, col = "red")
+
+# Check for 'creat'
+plot(resid(augmented_model, type = "martingale") ~ data$creat, 
+     xlab = "Creatinine Levels", ylab = "Martingale Residuals", main = "Martingale Residuals vs Creatinine Levels")
+abline(h = 0, col = "red")
+
+```
+
+```{r}
+# Check the proportional hazards assumption for the augmented model
+cox.zph(augmented_model)
+
+
+# Plot the Schoenfeld residuals for the augmented model
+plot(cox.zph(augmented_model))
+```
+
+```{r}
+
+# Example of Kaplan-Meier curves for the augmented model
+ggsurvplot(survfit(augmented_model), data = data, risk.table = TRUE)
+
+```
+
+```{r}
+
+# Predictions for augmented model
+predict(augmented_model, newdata = data.frame(sex = c(0, 1, 0), age = c(50, 60, 80), con.cabg = c(1, 0, 1), creat = c(1.2, 1.5, 1.3), lv = c(2, 3, 1), sten.reg.mix = c(1, 3, 2), log.lvmi = c(2.5, 3.0, 2.7)), type = "risk", times = 5)
+```
+
+## Random Survival Forest model
+```{r}
+library(randomForestSRC)
+
+# Fit Random Survival Forest model
+rsf_model <- rfsrc(Surv(fuyrs, status) ~ ., data = data)
+
+# Summary of the Random Survival Forest model
+print(rsf_model)
+
+```
+
+##Gradient Boosting Machine
+
+```{r}
+
+# Fit Gradient Boosting Machine model
+gbm_model <- gbm(Surv(fuyrs, status) ~ ., data = data, distribution = "coxph")
+
+# Summary of the Gradient Boosting Machine model
+print(gbm_model)
+
+```
+
+##Models Comparison
+```{r}
+
+rsf_pred <- predict(rsf_model, data)$predicted
+gbm_pred <- predict(gbm_model, data, type = "response")
+# Calculate concordance index (C-index) for each model
+cindex_rsf <- concordance(Surv(fuyrs, status) ~ rsf_pred, data)$concordance
+cindex_gbm <- concordance(Surv(fuyrs, status) ~ gbm_pred, data)$concordance
+
+# Print C-index for each model
+
+cat("Random Survival Forest C-index:", cindex_rsf, "\n")
+cat("Gradient Boosting Machine C-index:", cindex_gbm, "\n")
+
+```
 
