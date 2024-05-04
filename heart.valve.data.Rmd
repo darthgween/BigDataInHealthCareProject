@@ -1,0 +1,200 @@
+---
+title: "Heart.valve.data"
+output:
+  html_document:
+    df_print: paged
+---
+
+**Project Big Data in Healthcare**
+
+*Alessandro Rota(798050), Matteo Mondini(), Alexandre Crivellari(), Yasmin Bouhdada(),*
+
+# Index
+
+1.  [Library]
+
+2.  [Importing Data]
+
+3.  [Dataset variables]
+
+4.  [Descriptive analysis]
+
+    1.  [Dataset structure]
+
+    2.  [Age analysis]
+
+    3.  [Sex analysis]
+
+    4.  [Correlation between variables]
+
+# Library
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(dplyr)
+library(readr)
+library(survival)
+library(survminer)
+library(corrplot)
+```
+
+# Importing Data
+
+```{r}
+file_path <- "/Users/alessandrorota/Desktop/LM - DATA SCIENCE/II anno/Data science lab in medicine/Big data in Healthcare/progetto/heart.valve.txt"
+heart.valve <- read_delim(file_path, delim = "\t")
+head(heart.valve)
+
+```
+
+# Dataset variables
+
+-   ***Paz.id***: patient identification number.
+
+-   ***log.lvmi***: natural logarithm of the “Left Ventricular Mass Index” (standardized) measured at baseline.
+
+-   ***fuyrs***: follow-up time from surgery, in years.
+
+-   ***status***: event indicator (1 = dead; 0 = censored).
+
+-   ***sex***: sex of the patient (0 = M; 1 = F).
+
+-   ***age***: age of the patient (years) at surgery.
+
+-   ***con.cabg***: presence of coronary bypass (1 = yes; 0 = no).
+
+-   ***creat***: pre-operative serum creatinine (µmol/mL).
+
+-   ***lv***: pre-operative left ventricular ejection fraction (1 = high, 2 = moderate, 3 = low).
+
+-   ***sten.reg.mix***: hemodynamics of the heart valve (1 = stenosis, 2 = regurgitation, 3 = mixed).
+
+# Descriptive analysis
+
+## Dataset structure
+
+-   Dimension
+
+```{r}
+dim(heart.valve)
+```
+
+-   
+
+-   Measures of central tendency
+
+```{r}
+str(heart.valve)
+```
+
+```{r}
+summary(heart.valve)
+```
+
+## Age analysis {data-link="Age analysis"}
+
+```{r}
+ggplot(heart.valve, aes(x = age)) +
+  geom_histogram(binwidth = 5, fill = "blue", color = "black") +
+  ggtitle("Distribuzione dell'età") +
+  xlab("Età") +
+  ylab("Frequenza")
+```
+
+## Sex analysis
+
+```{r}
+
+heart.valve$sex <- factor(heart.valve$sex, levels = c(0, 1), labels = c("M", "F"))
+
+
+ggplot(heart.valve, aes(x = sex, fill = sex)) + 
+  geom_bar() + 
+  scale_fill_manual(values = c("M" = "blue", "F" = "pink")) +
+  xlab("Sex") + 
+  ylab("Count") +
+  ggtitle("Distribution by Sex") +
+  theme_minimal()
+
+```
+
+## Correlation between variables
+
+```{r}
+library(dplyr)
+library(corrplot)
+
+# Escludo colonna "paz.id"
+numeric_data <- heart.valve %>%
+  select(-paz.id) %>%
+  select_if(is.numeric)
+
+# Compute correlation matrix
+cor_matrix <- cor(numeric_data, use = "complete.obs")
+corrplot(cor_matrix, method = "color", type = "upper", order = "hclust", 
+         tl.col = "black", tl.srt = 45, addCoef.col = "black")
+```
+
+## Left Ventricular Mass Index
+
+The Left Ventricular Mass Index (LVMI) is a clinical parameter used to evaluate the mass of the left ventricle of the heart in relation to the patient's body surface area. It is an important measure in the diagnosis and monitoring of cardiac conditions such as left ventricular hypertrophy, which is a thickening of the walls of the left ventricle of the heart.
+
+```{r}
+ggplot(heart.valve, aes(x = factor(status), y = log.lvmi, fill = factor(status))) +
+  geom_boxplot() +
+  ggtitle("Boxplot di log.lvmi per Status") +
+  xlab("Status (0 = Censored, 1 = Dead)") +
+  ylab("log.lvmi") +
+  scale_fill_discrete(name = "Status")
+
+```
+
+## Creatinine
+
+```{r}
+
+heart.valve$status <- factor(heart.valve$status, levels = c(0, 1), labels = c("Censored", "Dead"))
+
+ggplot(heart.valve, aes(x = age, y = creat)) +
+  geom_point(aes(color = status), alpha = 0.6) +
+  geom_smooth(method = "lm", color = "red", se = FALSE) +
+  ggtitle("Scatter Plot: Age vs Creatinine by Status") +
+  xlab("Age") +
+  ylab("Creatinine") +
+  scale_color_manual(values = c("Censored" = "skyblue", "Dead" = "salmon"))
+
+```
+
+```{r}
+
+ggplot(heart.valve, aes(x = status, y = age, fill = factor(con.cabg))) +
+  geom_boxplot() +
+  ggtitle("Boxplot: Age by Status and CABG") +
+  xlab("Status (0 = Censored, 1 = Dead)") +
+  ylab("Age") +
+  scale_fill_manual(name = "CABG", labels = c("0" = "No", "1" = "Yes"), values = c("skyblue", "salmon"))
+
+```
+
+```{r}
+
+#livello di creatinina differenziata per status
+ggplot(heart.valve, aes(x = factor(status), y = creat, fill = factor(status))) +
+  geom_boxplot() + xlab("Status") + ylab("Creatinine (µmol/mL)") +
+  scale_fill_manual(values = c("red", "green"), labels = c("Deceased", "Censored"))
+```
+
+## Follow-up related to different ages
+
+```{r}
+# Crea lo scatter plot
+ggplot(heart.valve, aes(x = age, y = fuyrs)) +
+  geom_point(alpha = 0.6, color = "blue") +
+  geom_smooth(method = "lm", se = TRUE, color = "red")
+  ggtitle("Scatter Plot tra Age e Fuyrs") +  
+  xlab("Age") +  
+  ylab("Fuyrs") +  
+  theme_minimal() 
+
+```
