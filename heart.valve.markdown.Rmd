@@ -16,7 +16,7 @@ library(survival)
 library(survminer)
 library(randomForestSRC)
 library(gbm)
-
+library(utils) #For not having to upload the txt each time
 
 
 ```
@@ -25,9 +25,9 @@ library(gbm)
 
 ```{r}
 
-setwd('~/Desktop/Data Science/Data Science Lab in Medicine/Big Data in Health Care/')
-file_path <- "heart.valve.txt"
-data <- read_delim(file_path, delim = "\t")
+#setwd('~/Desktop/Data Science/Data Science Lab in Medicine/Big Data in Health Care/')
+url <- "https://raw.githubusercontent.com/darthgween/BigDataInHealthCareProject/main/heart.valve.txt?token=GHSAT0AAAAAACR3GYSWOK6GYZRGKSSK3Z2CZRXTKPA"
+data <- read.table(url, header = TRUE)
 head(data)
 ```
 

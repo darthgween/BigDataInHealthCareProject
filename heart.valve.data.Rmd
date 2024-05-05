@@ -37,13 +37,15 @@ library(readr)
 library(survival)
 library(survminer)
 library(corrplot)
+library(utils) # For not having to load the txt each time
 ```
 
 # Importing Data
 
 ```{r}
-file_path <- "/Users/alessandrorota/Desktop/LM - DATA SCIENCE/II anno/Data science lab in medicine/Big data in Healthcare/progetto/heart.valve.txt"
-heart.valve <- read_delim(file_path, delim = "\t")
+# This way we don't need to upload the txt file each time, it stays in the Github
+file_path <- "https://raw.githubusercontent.com/darthgween/BigDataInHealthCareProject/main/heart.valve.txt?token=GHSAT0AAAAAACR3GYSWOK6GYZRGKSSK3Z2CZRXTKPA"
+heart.valve <- read.table(url, header = TRUE)
 head(heart.valve)
 
 ```

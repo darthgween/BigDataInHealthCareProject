@@ -7,9 +7,12 @@
 # Load necessary libraries
 library(survival)
 library(survminer)
+library(utils)
 
 # Read the dataset
-data <- dataset
+url <- "https://raw.githubusercontent.com/darthgween/BigDataInHealthCareProject/main/heart.valve.txt?token=GHSAT0AAAAAACR3GYSWOK6GYZRGKSSK3Z2CZRXTKPA"
+data <- read.table(url, header = TRUE)
+head(data)
 
 # Convert factors to categorical variables if necessary
 data$sex <- factor(data$sex, levels = c(0, 1), labels = c("Male", "Female"))
@@ -58,7 +61,6 @@ basic_model <- coxph(Surv(fuyrs, status) ~ sex + age + con.cabg + creat + lv + s
 summary(basic_model)
 
 ### STEP 4: Evaluate functional form of continuous variables and assumption "Proportional Hazards" for all covariates 
-### ATTENZIONE!!!! QUA BISOGNA CORREGGERE LA FUNZIONE DEL GRAFICO PERCHE' E' BUGGATA!!! Va risolta come diceva il prof a lezione
 
 # Check the functional form of 'age' using Martingale residuals
 mart_resid_age <- resid(basic_model, type = "martingale")
@@ -84,7 +86,7 @@ augmented_model <- coxph(Surv(fuyrs, status) ~ sex + age + con.cabg + creat + lv
 summary(augmented_model)
 
 ### STEP 6:  Evaluate functional form of continuous variables and assumption "Proportional Hazards" for all covariates 
-### ATTENZIONE!!!! QUA BISOGNA CORREGGERE LA FUNZIONE DEL GRAFICO PERCHE' E' BUGGATA!!! Va risolta come diceva il prof a lezione
+
 
 # Evaluate functional form of continuous variables using Martingale residuals
 # Check for 'log.lvmi'
