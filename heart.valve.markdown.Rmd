@@ -219,6 +219,30 @@ ggsurvplot(survfit(base_model), data = data, risk.table = TRUE)
 ```
 
 ```{r}
+# TRYING CALIBRATION PLOTS
+library(survival)
+library(rms)
+library(ggplot2)
+install.packages('survAUC')
+library(survAUC)
+library(rms)
+
+# Create a calibration plot
+calib <- calibrate(base_model, method = "boot", B = 100)
+calib_plot <- ggplot(calib, aes(x = .score, y = .cal)) +
+  geom_line() +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  labs(x = "Predicted Risk", y = "Observed Risk", title = "Calibration Plot")
+
+# Print the calibration plot
+print(calib_plot)
+
+# Calculate the Brier score
+brier_score <- brier.score(Surv(time, status) ~ predict(base_model), data = data, method = "KM")
+print(paste("Brier Score: ", brier_score))
+```
+
+```{r}
 # Check the functional form of 'age' using Martingale residuals
 mart_resid_age <- resid(base_model, type = "martingale")
 plot(data$age, mart_resid_age, xlab = "Age", ylab = "Martingale residuals", main = "Martingale Residuals vs Age")
