@@ -26,7 +26,7 @@ library(utils) #For not having to upload the txt each time
 ```{r}
 
 #setwd('~/Desktop/Data Science/Data Science Lab in Medicine/Big Data in Health Care/')
-url <- "https://raw.githubusercontent.com/darthgween/BigDataInHealthCareProject/main/heart.valve.txt?token=GHSAT0AAAAAACR3GYSWOK6GYZRGKSSK3Z2CZRXTKPA"
+url <- "https://raw.githubusercontent.com/darthgween/BigDataInHealthCareProject/main/heart.valve.txt?token=GHSAT0AAAAAACR3GYSXO5Z3ARKVQY2S6SYSZRYZQWA"
 data <- read.table(url, header = TRUE)
 head(data)
 ```
@@ -243,21 +243,35 @@ print(paste("Brier Score: ", brier_score))
 ```
 
 ```{r}
-# Check the functional form of 'age' using Martingale residuals
-mart_resid_age <- resid(base_model, type = "martingale")
-plot(data$age, mart_resid_age, xlab = "Age", ylab = "Martingale residuals", main = "Martingale Residuals vs Age")
-abline(h = 0, col = "red")
+#### Test Proportional Hazards - Martingale and Schoenfeld
 
-# Check the functional form of 'creat' using Martingale residuals
-mart_resid_creat <- resid(base_model, type = "martingale")
-plot(data$creat, mart_resid_creat, xlab = "Creatinine Levels", ylab = "Martingale residuals", main = "Martingale Residuals vs Creatinine Levels")
-abline(h = 0, col = "red")
+# Function to plot Martingale residuals for continuous variables - FUNCTIONAL FORM
+plot_martingale <- function(variable) {
+  # Compute residuals
+  martingale_res <- residuals(base_model, type = "martingale")
+  
+  # Create a data frame for plotting
+  plot_data <- data.frame(Variable = data[[variable]], Residuals = martingale_res)
+  
+  # Plot
+  ggplot(plot_data, aes(x = Variable, y = Residuals)) +
+    geom_point(alpha = 0.5) +
+    geom_smooth(method = "loess", color = "red") +
+    labs(title = paste("Martingale residuals vs", variable),
+         x = variable,
+         y = "Martingale Residuals")
+}
 
-# Checking Proportional Hazards assumption
-# We use cox.zph function to perform the test
-ph_test <- cox.zph(base_model)
-print(ph_test)  # This will print the test results
-plot(ph_test)   # This plots the Schoenfeld residuals
+# Plot Martingale residuals for 'age' and 'creat'- FUNCTIONAL FORM
+plot_martingale("age")
+plot_martingale("creat")
+
+# Function to check proportional hazards using Schoenfeld residuals - PH ASSUMPTION
+
+# Plot the residuals
+plot(cox.zph(base_model))
+
+
 
 ```
 
@@ -283,20 +297,28 @@ The augmented model includes log.lvmi as a new predictor, significantly improvin
 
 ```{r}
 # Evaluate functional form of continuous variables using Martingale residuals
-# Check for 'log.lvmi'
-plot(resid(augmented_model, type = "martingale") ~ data$log.lvmi, 
-     xlab = "Log LVMi", ylab = "Martingale Residuals", main = "Martingale Residuals vs Log LVMi")
-abline(h = 0, col = "red")
 
-# Check for 'age'
-plot(resid(augmented_model, type = "martingale") ~ data$age, 
-     xlab = "Age", ylab = "Martingale Residuals", main = "Martingale Residuals vs Age")
-abline(h = 0, col = "red")
+# Function to plot Martingale residuals for continuous variables - FUNCTIONAL FORM
+plot_martingale_aug <- function(variable) {
+  # Compute residuals
+  martingale_res <- residuals(augmented_model, type = "martingale")
+  
+  # Create a data frame for plotting
+  plot_data <- data.frame(Variable = data[[variable]], Residuals = martingale_res)
+  
+  # Plot
+  ggplot(plot_data, aes(x = Variable, y = Residuals)) +
+    geom_point(alpha = 0.5) +
+    geom_smooth(method = "loess", color = "red") +
+    labs(title = paste("Martingale residuals vs", variable),
+         x = variable,
+         y = "Martingale Residuals")
+}
 
-# Check for 'creat'
-plot(resid(augmented_model, type = "martingale") ~ data$creat, 
-     xlab = "Creatinine Levels", ylab = "Martingale Residuals", main = "Martingale Residuals vs Creatinine Levels")
-abline(h = 0, col = "red")
+# Plot Martingale residuals for 'age', 'creat' and 'log.lvmi' - FUNCTIONAL FORM
+plot_martingale_aug("age")
+plot_martingale_aug("creat")
+plot_martingale_aug("log.lvmi")
 
 ```
 
@@ -361,4 +383,28 @@ cat("Random Survival Forest C-index:", cindex_rsf, "\n")
 cat("Gradient Boosting Machine C-index:", cindex_gbm, "\n")
 
 ```
+
+##ALEX TEST
+
+```{r}
+# Function to run univariate Cox model and return summary
+run_cox_model <- function(variable) {
+  formula <- as.formula(paste("Surv(fuyrs, status) ~", variable))
+  model <- coxph(formula, data = data)
+  summary(model)
+}
+
+# List of variables to test
+variables <- c("log.lvmi", "sex", "age", "con.cabg", "creat", "lv", "sten.reg.mix")
+
+# Apply the function to each variable and store results
+model_results <- lapply(variables, run_cox_model)
+
+# Print the results
+model_results
+
+
+
+```
+
 
