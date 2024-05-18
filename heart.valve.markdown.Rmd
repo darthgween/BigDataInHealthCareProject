@@ -202,6 +202,9 @@ base_model <- coxph(Surv(fuyrs, status) ~ sex + age + con.cabg + creat + lv + st
 summary(base_model)
 
 
+fit1<-survfit(base_model,newdata=data)
+data$risk_base<-1-as.numeric(summary(fit1,times=5)$surv)
+
 ```
 The Cox proportional hazards model shows significant effects of age, coronary artery bypass grafting (con.cabg), left ventricular function (lv), and stenosis severity (sten.reg.mix) on survival time. 
 
@@ -216,6 +219,32 @@ The model has moderate predictive accuracy (Concordance = 0.783) and overall goo
 
 # Example of Kaplan-Meier curves for the base model
 ggsurvplot(survfit(base_model), data = data, risk.table = TRUE)
+
+```
+
+```{r}
+# Load necessary libraries
+#install.packages("rms")
+library(rms)
+#install.packages("survival")
+library(survival)
+
+# Assuming data is your dataframe with the relevant variables
+# Example dataset
+# data <- data.frame(fuyrs = ..., status = ..., sex = ..., age = ..., con.cabg = ..., creat = ..., lv = ..., sten.reg.mix = ...)
+
+# Set up the data distribution for rms package
+dd <- datadist(heart.valve)
+options(datadist = 'dd')
+
+# Fit the Cox proportional hazards model using cph from rms package
+cph_model <- cph(Surv(fuyrs, status) ~ sex + age + con.cabg + creat + lv + sten.reg.mix, data = data, x = TRUE, y = TRUE, surv = TRUE)
+
+# Calibrate the model
+calib <- calibrate(cph_model, method = "boot", B = 200, u = 5)
+
+# Plot the calibration curve
+plot(calib, xlim = c(0, 1), ylim = c(0, 1), xlab = "Predicted Probability", ylab = "Observed Probability", main = "Calibration Plot")
 
 ```
 
@@ -242,6 +271,16 @@ print(calib_plot)
 brier_score <- brier.score(Surv(time, status) ~ predict(base_model), data = data, method = "KM")
 print(paste("Brier Score: ", brier_score))
 ```
+
+
+```{r}
+fit<-survfit(Surv(fuyrs, status) ~ 1, data)
+plot(fit, xlab='Years since transplant', ylab='Survival probability')
+```
+
+
+
+
 
 ```{r}
 #### Test Proportional Hazards - Martingale and Schoenfeld
@@ -290,10 +329,17 @@ augmented_model <- coxph(Surv(fuyrs, status) ~ sex + age + con.cabg + creat + lv
 
 summary(augmented_model)
 
+fit2<-survfit(augmented_model,newdata=data)
+data$risk_augmented<-1-as.numeric(summary(fit2,times=5)$surv)
+
 ```
 
 
 The augmented model includes log.lvmi as a new predictor, significantly improving predictive accuracy and model fit compared to the base model. Notably, con.cabg and sten.reg.mix show stronger effects, while log.lvmi emerges as a significant predictor. The concordance value (0.797) is slightly higher than the base_model so we can conclude that the augmented one with the new covariate log.lvmi is better than the base model
+
+
+
+
 
 
 ```{r}
@@ -369,6 +415,25 @@ print(gbm_model)
 
 ```
 
+##Logistic Regression
+```{r}
+reg <- glm(status~.,data=data,family=binomial(link="logit"))
+summary(reg)
+```
+
+```{r}
+library(predtools)
+library(magrittr)
+library(dplyr)
+
+data$pred <- predict.glm(reg, type = 'response')
+#val_data$pred <- predict.glm(reg, newdata = val_data, type = 'response')
+data$pred
+calibration_plot(data = data, obs = "status", pred = "pred", title = "Calibration plot for development data", y_lim = c(0, 0.7), x_lim=c(0, 0.7))
+#> $calibration_plot
+```
+
+
 ##Models Comparison
 ```{r}
 
@@ -383,6 +448,207 @@ cindex_gbm <- concordance(Surv(fuyrs, status) ~ gbm_pred, data)$concordance
 cat("Random Survival Forest C-index:", cindex_rsf, "\n")
 cat("Gradient Boosting Machine C-index:", cindex_gbm, "\n")
 
+```
+
+
+###Calibration plot
+```{r}
+
+#Risk quantiles of 1
+q1 <- quantile(data$risk_base,  probs = seq(0.1, 0.9, 0.1))
+
+# Risk classes of 1:
+riskclass1 <- ifelse(data$risk_base < q1[1], 1,
+                     ifelse(data$risk_base < q1[2], 2,
+                            ifelse(data$risk_base < q1[3], 3,
+                                   ifelse(data$risk_base < q1[4], 4,
+                                          ifelse(data$risk_base < q1[5], 5,
+                                                 ifelse(data$risk_base < q1[6], 6,
+                                                        ifelse(data$risk_base < q1[7], 7,
+                                                               ifelse(data$risk_base < q1[8], 8,
+                                                                      ifelse(data$risk_base < q1[9], 9, 
+                                                                             10)))))))))
+
+
+
+
+# Observed proportion of events in risk classes of 1:
+obsclass1 <- c()
+for (i in 1:10) {
+  group <- i
+  ratio <- sum(data$status[riskclass1 == group]) / sum(riskclass1 == group)
+  obsclass1 <- c(obsclass1, ratio)
+}
+
+# Average predicted risk in classes of 1:
+meanriskclass1 <- c()
+for (i in 1:10) {
+  group <- i
+  meanrisk <- mean(data$risk_base[riskclass1 == group])
+  meanriskclass1 <- c(meanriskclass1, meanrisk)
+}
+
+
+
+
+#Risk quantiles of 2
+q2 <- quantile(data$risk_augmented,  probs = seq(0.1, 0.9, 0.1))
+
+# Risk classes of 1:
+riskclass2 <- ifelse(data$risk_augmented < q2[1], 1,
+                     ifelse(data$risk_augmented < q2[2], 2,
+                            ifelse(data$risk_augmented < q2[3], 3,
+                                   ifelse(data$risk_augmented < q2[4], 4,
+                                          ifelse(data$risk_augmented < q2[5], 5,
+                                                 ifelse(data$risk_augmented < q2[6], 6,
+                                                        ifelse(data$risk_augmented < q2[7], 7,
+                                                               ifelse(data$risk_augmented < q2[8], 8,
+                                                                      ifelse(data$risk_augmented < q2[9], 9, 
+                                                                             10)))))))))
+# Observed proportion of events in risk classes of 2:
+obsclass2 <- c()
+for (i in 1:10) {
+  group <- i
+  ratio <- sum(data$status[riskclass2 == group]) / sum(riskclass2 == group)
+  obsclass2 <- c(obsclass2, ratio)
+}
+
+# Average predicted risk in classes of 2:
+meanriskclass2 <- c()
+for (i in 1:10) {
+  group <- i
+  meanrisk <- mean(data$risk_augmented[riskclass2 == group])
+  meanriskclass2 <- c(meanriskclass2, meanrisk)
+}
+
+# Calibration plot
+
+par(mar=c(5,5,1,1))
+plot(meanriskclass1, obsclass1, main = '', pch = 1, xlim = c(0,1), cex = 1.5,
+     ylim = c(0,1), lwd = 3, ylab = 'Observed event rate', cex.lab = 1.7, cex.axis = 1.7,
+     xlab = 'Average risk within decile', xaxt = "n", yaxt = "n", frame = F) 
+axis(2, at = c(0,0.2,0.4,0.6,0.8,1), labels = NA, pos = 0)
+axis(2, at = c(0,0.2,0.4,0.6,0.8,1), labels = c(0,0.2,0.4,0.6,0.8,1), cex.axis = 1.7, pos = 0)
+axis(1, at = c(0,0.2,0.4,0.6,0.8,1), labels = c(0,0.2,0.4,0.6,0.8,1), cex.axis = 1.7, pos = 0)
+
+points(meanriskclass2, obsclass2, lwd = 3, pch = 2, cex = 1.5)
+
+lines(c(0, 1), c(0, 1), lty = 2, lwd = 2) 
+
+lines(c(0,1), c(1,1), lty = 1)
+lines(c(1,1), c(0,1), lty = 1)
+
+legend(x = 0, y = 1, c("Base Model Risk","Augmented Model Risk"), lwd = c(3, 3), pch = c(1, 2), 
+       bty = 'n', cex = 1.8, lty = c(NA,NA)) 
+
+```
+### Brier Score
+```{r}
+# indicator of death within 5 year
+data$status.5y<-ifelse(data$fuyrs<=5,1,0)
+# Brier Score
+(BS_base <- mean((data$status.5y - data$risk_base) ^ 2)) 
+(BS_augmented <- mean((data$status.5y - data$risk_augmented) ^ 2))
+```
+While the differences in Brier scores are small, the base model outperforms the augmented model in terms of predictive accuracy. This suggests that the additional variables included in the augmented model do not contribute positively to prediction and may even introduce noise, reducing overall performance.
+```{r}
+BS_basesc  <- mean(data$risk_base*(1-data$risk_base))
+BS_augmentedsc <- mean(data$risk_augmented*(1-data$risk_augmented))
+
+BS_base-BS_basesc
+BS_augmented-BS_augmentedsc
+```
+
+###ROC AUC
+```{r}
+roc1<-roc(data$status.5y, data$risk_base)
+plot(1 - roc1$specificities, roc1$sensitivities, 
+     type = 'l', ylab = 'TPF', xlab = 'FPF', lwd = 3, xaxt = "n", yaxt = "n", 
+     xlim = c(0,1), cex.lab = 1.7, frame = F)
+axis(1, at = c(0,0.25,0.5,0.75,1), labels = NA, pos = 0)
+axis(1, at = c(0,0.25,0.5,0.75,1), labels = c(0,0.25,0.5,0.75,1), cex.axis = 1.7, pos = 0)
+axis(2, at = c(0,0.25,0.5,0.75,1), labels = c(0,0.25,0.5,0.75,1), cex.axis = 1.7, pos = 0)
+Youden1<-roc1$sensitivities+roc1$specificities-1
+optimal.cut.off1<-roc1$thresholds[Youden1==max(Youden1)]
+cbind(optimal.cut.off1,Youden=max(Youden1))
+points(1-roc1$specificities[roc1$thresholds==optimal.cut.off1],roc1$sensitivities[roc1$thresholds==optimal.cut.off1],pch=0,cex=1.7)
+
+roc2<-roc(data$status.5y, data$risk_augmented)
+
+lines(1 - roc2$specificities, roc2$sensitivities, 
+      lwd = 3, lty = 3)
+Youden2<-roc2$sensitivities+roc2$specificities-1
+optimal.cut.off2<-roc2$thresholds[Youden2==max(Youden2)]
+cbind(optimal.cut.off2,Youden=max(Youden2))
+
+
+points(1-roc2$specificities[roc2$thresholds==optimal.cut.off2],roc2$sensitivities[roc2$thresholds==optimal.cut.off2],pch=0,cex=1.7)
+
+# Chance line:
+abline(a=0, b=1, lty = 2, lwd = 2)
+lines(c(0,1), c(1,1), lty = 1)
+lines(c(1,1), c(0,1), lty = 1)
+
+legend(x = 0, y = 1, c("model1","model2"), lwd = c(3,3), lty = c(1,3), bty = 'n', cex = 1.7)
+
+
+```
+
+
+
+
+```{r}
+(AUC1 <- roc1$auc)
+(AUC2 <- roc2$auc)   
+AUC2 - AUC1
+```
+
+
+```{r}
+
+score<- Score(list("model1"=base_model_1,"model2"=augmented_model_2),
+              formula=Surv(fuyrs, status==1)~1,
+              data,conf.int=T,
+              times=seq(1,5,1),
+              plots=c("calibration","ROC"))
+
+plotROC(score,times=5,cens.method="local")
+title(main="time-dependent ROC at 1 years")
+```
+```{r}
+plotCalibration(score,times=5,cens.method="local",method="quantile",q=10)
+title(main="calibration at 1 years")
+
+```
+
+```{r}
+
+##NOT WORKING
+library(survival)
+library(riskRegression)
+
+base_model_1 <- coxph(Surv(fuyrs, status) ~ sex + age + con.cabg + creat + lv + sten.reg.mix, data, x = TRUE)
+
+augmented_model_2 <- coxph(Surv(fuyrs, status) ~ sex + age + con.cabg + creat + lv + sten.reg.mix + log.lvmi, data, x = TRUE)
+
+# internal validation using bootstrap
+CVscore<- Score(list("model1"=base_model_1,"model2"=augmented_model_2),
+                formula=Surv(fuyrs, status==1)~1,
+                data,conf.int=T,
+                times=seq(1,5,1),
+                split.method="loob",B=200,seed=1803)
+
+CVscore
+
+data
+```
+
+
+###NET BENEFIT
+
+```{r}
+library(dcurves)
+dca(Surv(fuyrs, status==1) ~ risk_base + risk_augmented, data, time = 5)
 ```
 
 ##ALEX TEST
