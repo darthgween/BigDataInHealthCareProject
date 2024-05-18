@@ -34,10 +34,10 @@ head(data)
 ```{r}
 
 #TO EVALUATE
-data$sex <- factor(data$sex, levels = c(0, 1), labels = c("Male", "Female"))
-data$con.cabg <- factor(data$con.cabg, levels = c(0, 1), labels = c("No", "Yes"))
-data$lv <- factor(data$lv, levels = c(1, 2, 3), labels = c("High", "Moderate", "Low"))
-data$sten.reg.mix <- factor(data$sten.reg.mix, levels = c(1, 2, 3), labels = c("Stenosis", "Regurgitation", "Mixed"))
+# data$sex <- factor(data$sex, levels = c(0, 1), labels = c("Male", "Female"))
+# data$con.cabg <- factor(data$con.cabg, levels = c(0, 1), labels = c("No", "Yes"))
+# data$lv <- factor(data$lv, levels = c(1, 2, 3), labels = c("High", "Moderate", "Low"))
+# data$sten.reg.mix <- factor(data$sten.reg.mix, levels = c(1, 2, 3), labels = c("Stenosis", "Regurgitation", "Mixed"))
 
 ```
 
@@ -98,6 +98,7 @@ if (!require(corrplot)) {
 }
 corrplot(cor_matrix, method = "circle")
 ```
+
 
 ## Left Ventricular Mass Index
 
@@ -292,7 +293,7 @@ summary(augmented_model)
 ```
 
 
-The augmented model includes log.lvmi as a new predictor, significantly improving predictive accuracy and model fit compared to the base model. Notably, con.cabg and sten.reg.mix show stronger effects, while log.lvmi emerges as a significant predictor. The concordance value (0.797) is slightly higher than the base_model so we can conclude that the augmented one with the new covariate log.lvmi is a better model
+The augmented model includes log.lvmi as a new predictor, significantly improving predictive accuracy and model fit compared to the base model. Notably, con.cabg and sten.reg.mix show stronger effects, while log.lvmi emerges as a significant predictor. The concordance value (0.797) is slightly higher than the base_model so we can conclude that the augmented one with the new covariate log.lvmi is better than the base model
 
 
 ```{r}
@@ -407,4 +408,35 @@ model_results
 
 ```
 
+#REDUCED RANK REGRESSION (TEST)
+
+```{r}
+library(survival)
+
+# Define the reduced rank structure matrix
+# Here, let's say we want to reduce the rank to 2
+# So, we have a 7x2 structure matrix
+structure_matrix <- matrix(0, nrow = 7, ncol = 2)
+
+# Filling the structure matrix with appropriate coefficients
+# For simplicity, let's assume all coefficients are 1
+structure_matrix[] <- 1
+
+# Fit the Cox proportional hazards model with reduced rank
+reduced_rank_model <- coxph(Surv(fuyrs, status) ~ sex + age + con.cabg + creat + lv + sten.reg.mix + log.lvmi +
+                               tt(sex) + tt(age) + tt(con.cabg) + tt(creat) + tt(lv) + tt(sten.reg.mix) + tt(log.lvmi),
+                            tt = structure_matrix,
+                            data = data)
+
+# Summary of the reduced rank model
+summary(reduced_rank_model)
+
+# Compare the old model with the new one
+print("Old Model:")
+summary(augmented_model)
+print("Reduced Rank Model:")
+summary(reduced_rank_model)
+
+
+```
 
