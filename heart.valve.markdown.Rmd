@@ -17,8 +17,6 @@ library(survminer)
 library(randomForestSRC)
 library(gbm)
 library(utils) #For not having to upload the txt each time
-
-
 ```
 
 # Importing Data
@@ -30,17 +28,6 @@ url <- "https://raw.githubusercontent.com/darthgween/BigDataInHealthCareProject/
 data <- read.table(url, header = TRUE)
 head(data)
 ```
-
-```{r}
-
-#TO EVALUATE
-# data$sex <- factor(data$sex, levels = c(0, 1), labels = c("Male", "Female"))
-# data$con.cabg <- factor(data$con.cabg, levels = c(0, 1), labels = c("No", "Yes"))
-# data$lv <- factor(data$lv, levels = c(1, 2, 3), labels = c("High", "Moderate", "Low"))
-# data$sten.reg.mix <- factor(data$sten.reg.mix, levels = c(1, 2, 3), labels = c("Stenosis", "Regurgitation", "Mixed"))
-
-```
-
 
 ```{r}
 dim(data)
@@ -98,7 +85,15 @@ if (!require(corrplot)) {
 }
 corrplot(cor_matrix, method = "circle")
 ```
+```{r}
 
+# TO CATEGORIC
+data$sex <- factor(data$sex, levels = c(0, 1), labels = c("Male", "Female"))
+data$con.cabg <- factor(data$con.cabg, levels = c(0, 1), labels = c("No", "Yes"))
+data$lv <- factor(data$lv, levels = c(1, 2, 3), labels = c("High", "Moderate", "Low"))
+data$sten.reg.mix <- factor(data$sten.reg.mix, levels = c(1, 2, 3), labels = c("Stenosis", "Regurgitation", "Mixed"))
+
+```
 
 ## Left Ventricular Mass Index
 
@@ -206,6 +201,9 @@ fit1<-survfit(base_model,newdata=data)
 data$risk_base<-1-as.numeric(summary(fit1,times=5)$surv)
 
 ```
+
+
+
 The Cox proportional hazards model shows significant effects of age, coronary artery bypass grafting (con.cabg), left ventricular function (lv), and stenosis severity (sten.reg.mix) on survival time. 
 
 Sex and creatinine levels (creat) do not appear to significantly affect survival. 
