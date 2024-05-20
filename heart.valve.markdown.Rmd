@@ -202,11 +202,15 @@ data$risk_base<-1-as.numeric(summary(fit1,times=5)$surv)
 
 ```
 
+The Cox proportional hazards model shows significant effects of age, coronary artery bypass grafting (con.cabg), left ventricular function (lv), and stenosis severity (sten.reg.mix) on survival time. In particular:
+1. Sex: the variable sex does not show a significant effect (p-value = 0.392228) on survival. The hazard ratio for females (1.317) would suggest a higher risk compared to males, but the wide confidence interval (0.7009 to 2.475) and high p-value indicate that this effect is not statistically robust. In many clinical studies, sex may influence outcomes due to differences in biological responses or treatment approaches, but in this dataset, it appears not to be a major factor.
+2. **Age**: The Hazard Ratio (HR) for Age is higher than 1 (1.103996) and highly significant (p-value = 3.82e-07), indicating that for each additional year of age, the risk of death increases by about 10.39%. Age is a known risk factor in survival studies, particularly in cardiac procedures, where older patients typically have a higher risk due to greater frailty and the likelihood of comorbid conditions.
+3. **Coronary Artery Bypass Grafting (CABG) (con.cabg)**: The presence of CABG (indicated by con.cabgYes) is associated with a significantly higher risk of death (p-value = 0.027932). The hazard ratio of 1.916 suggests that patients who have undergone CABG have about 91.6% higher risk of death compared to those who have not. This might reflect the severity of coronary artery disease in patients requiring CABG, which can complicate heart valve surgery outcomes.
+4. Creatinine Levels (creat): The creatinine level shows a minimal impact on the hazard (coef = 0.006730) with a p-value of 0.131411, suggesting that within the range of creatinine levels in this study population, there isn't a strong or significant association with survival outcomes. Creatinine levels are a marker of kidney function, which can be crucial in overall health status but may not directly influence survival outcomes post-surgery unless reaching more extreme values.
+5. **Left Ventricular Function (lv)**: Given a level of significance equal to 0.05, a moderate ventricular function (lvModerate) seems to not be a significant predictor for mortality following heart valve transplant. On the contrary, lvLow is highly significant (p-value = 0.000232) with a Hazard Ratio of 5.182, indicating a substantial increase (more than 5 times more) in risk for patients with low ventricular function. This is consistent with clinical expectations, as poor ventricular function can severely impact the heart's ability to pump blood effectively after surgery.
+6. Stenosis Severity (sten.reg.mix): The severity of valve stenosis or mixed conditions shows no significant effect on survival at the 0.05 level of significance. However, the negative coefficients for regurgitation (-0.619062) and mixed (-0.812285) suggest a protective effect compared to stenosis (though, again, not statistically significant). This might indicate different pathophysiological impacts of these conditions on patient outcomes, potentially moderated by other factors not included in the model.
 
-
-The Cox proportional hazards model shows significant effects of age, coronary artery bypass grafting (con.cabg), left ventricular function (lv), and stenosis severity (sten.reg.mix) on survival time. 
-
-Sex and creatinine levels (creat) do not appear to significantly affect survival. 
+Overall, the base model suggests that age, coronary artery bypass grafting, left ventricular function and stenosis severity are significant predictors of survival following heart valve transplant. Sex and creatinine levels (creat) do not appear to significantly affect survival. 
 
 The model has moderate predictive accuracy (Concordance = 0.783) and overall good fit according to model fit tests. 
 
