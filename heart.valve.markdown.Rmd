@@ -337,11 +337,16 @@ data$risk_augmented<-1-as.numeric(summary(fit2,times=5)$surv)
 ```
 
 
-The augmented model includes log.lvmi as a new predictor, significantly improving predictive accuracy and model fit compared to the base model. Notably, con.cabg and sten.reg.mix show stronger effects, while log.lvmi emerges as a significant predictor. The concordance value (0.797) is slightly higher than the base_model so we can conclude that the augmented one with the new covariate log.lvmi is better than the base model
+The results from the new augmented model, which now includes *log.lvmi* alongside other variables, provide significant insights into the factors influencing survival after heart valve implantation. In particular:
+1. Sex (Female): While the coefficient for females has increased slightly compared to the base model, it remains non-significant (p = 0.225493). The hazard ratio is 1.486, indicating a 48.6% higher risk of death for females compared to males, though this difference is not statistically robust. This might suggest some inherent but not definitive differences in outcomes by gender that are not captured fully by the model or sample size.
+2. **Age**: Consistently significant across both models, each additional year of age increases the risk of death by 10.3% (p = 6.15e-07). This confirms the substantial impact of age on survival post-surgery, reflecting the increased vulnerability and potential comorbidities associated with older age.
+3. **Coronary Artery Bypass Grafting (CABG) (Yes)**: The hazard ratio for CABG has slightly increased to 2.090, and it remains significant (p = 0.014313). This underlines the higher risk associated with patients who have had CABG, likely reflecting more severe baseline coronary artery disease.
+4. Creatinine (Creat): The effect of creatinine levels remains non-significant (p = 0.459702) with a very minimal hazard ratio change (1.004). This suggests that within this study population, creatinine levels are not a strong predictor of survival, possibly due to not reaching clinically critical levels.
+5. **Left Ventricular Function (LV)**: The effect of moderate ventricular function, in this augmented model, seems to become statistically significant at a level of 0.05 (p-value=0.047024), while the low ventricular function still remains highly significant (p-value=0.000189) with a very high hazard ratio of 5.272097. Again, low ventricular function is a strong predictor for both models, representing a significant risk factor for mortality post-surgery.
+6. **Stenosis Severity (Sten.reg.mix)**: The effect of stenosis severity remains non-significant for regurgitation (p-value=0.150625), while becoming statistically significant for mixed conditions (p-value=0.037195). Compared to stenosis, mixed conditions seem to show a protective effect (HR=0.392434, or 39.2% lower risk).
+7. **Logarithm of Left Ventricular Mass Index (log.lvmi)**: This newly added variable is significant (p = 0.001712) with a coefficient of 1.219381, translating into a hazard ratio of 3.385. This indicates that higher values of log-transformed left ventricular mass index substantially increase the risk of death.
 
-
-
-
+The inclusion of this last variable not only highlights its importance in clincical effects but also enhances the model's explanatory power, as seen in the improved concordance and significant test statistics (Likelihood ratio, Wald test, and logrank test).
 
 
 ```{r}
