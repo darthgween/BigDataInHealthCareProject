@@ -5,9 +5,9 @@ output:
     df_print: paged
 ---
 
-# Library
+# Libraries used
 
-```{r}
+```{r Libraries}
 knitr::opts_chunk$set(echo = TRUE)
 library(ggplot2)
 library(dplyr)
@@ -19,9 +19,9 @@ library(gbm)
 library(utils) #For not having to upload the txt each time
 ```
 
-# Importing Data
+# Dataset: ETL and EDA
 
-```{r}
+```{r Importing data from shared GitHub}
 
 #setwd('~/Desktop/Data Science/Data Science Lab in Medicine/Big Data in Health Care/')
 url <- "https://raw.githubusercontent.com/darthgween/BigDataInHealthCareProject/main/heart.valve.txt?token=GHSAT0AAAAAACR3GYSXO5Z3ARKVQY2S6SYSZRYZQWA"
@@ -29,7 +29,7 @@ data <- read.table(url, header = TRUE)
 head(data)
 ```
 
-```{r}
+```{r Dimensions}
 dim(data)
 ```
 
@@ -55,27 +55,28 @@ Description of dataset variables:
 
 -   ***sten.reg.mix***: hemodynamics of the heart valve (1 = stenosis, 2 = regurgitation, 3 = mixed).
 
-```{r}
+```{r Check for data structure and types}
 str(data)
 ```
 
-```{r}
+```{r Dataset Summary for all variables}
 summary(data)
 ```
 
-# Age distribution
+## Age distribution
+[SOME COMMENT HERE]
 
-```{r}
+```{r Age Histogram}
 ggplot(data, aes(x = age)) +
-  geom_histogram(binwidth = 5, fill = "blue", color = "black") +
+  geom_histogram(binwidth = 5, fill = "lightblue", color = "black") +
   ggtitle("Distribuzione dell'età") +
   xlab("Età") +
   ylab("Frequenza")
 ```
 
-#Correlation between variables
+## Correlation between variables
 
-```{r}
+```{r Correlation Matrix}
 cor_matrix <- cor(data, use = "complete.obs")
 print(cor_matrix)
 
@@ -85,9 +86,8 @@ if (!require(corrplot)) {
 }
 corrplot(cor_matrix, method = "circle")
 ```
-```{r}
+```{r Transforming variables into Categoric}
 
-# TO CATEGORIC
 data$sex <- factor(data$sex, levels = c(0, 1), labels = c("Male", "Female"))
 data$con.cabg <- factor(data$con.cabg, levels = c(0, 1), labels = c("No", "Yes"))
 data$lv <- factor(data$lv, levels = c(1, 2, 3), labels = c("High", "Moderate", "Low"))
@@ -95,21 +95,23 @@ data$sten.reg.mix <- factor(data$sten.reg.mix, levels = c(1, 2, 3), labels = c("
 
 ```
 
-## Left Ventricular Mass Index
+## Deep Dive: Left Ventricular Mass Index
 
 Il Left Ventricular Mass Index (LVMI) è un parametro clinico utilizzato per valutare la massa del ventricolo sinistro del cuore in relazione alla superficie corporea del paziente. È una misura importante nella diagnosi e nel monitoraggio di condizioni cardiache come l'ipertrofia ventricolare sinistra, che è un ispessimento delle pareti del ventricolo sinistro del cuore.
 
-```{r}
+```{r Boxplot log.lvmi - Status}
 ggplot(data, aes(x = factor(status), y = log.lvmi, fill = factor(status))) +
   geom_boxplot() +
-  ggtitle("Boxplot di log.lvmi per Status") +
+  ggtitle("Boxplot of log.lvmi for Status") +
   xlab("Status") +
   ylab("log.lvmi") +
   scale_fill_discrete(name = "Status")
 
 ```
+## Deep Dive: does Left Ventricular Mass Index increase with Age?
+[DESCRIVERE QUI PERCHEè?]
 
-```{r}
+```{r Boxplot log.lvmi - Age}
 ggplot(data, aes(x = age, y = log.lvmi)) +
   geom_point(alpha = 0.5) +
   geom_smooth(method = "lm", color = "red", se = FALSE) +
@@ -119,77 +121,69 @@ ggplot(data, aes(x = age, y = log.lvmi)) +
 
 ```
 
-# Models:
+# Models
 
-```{r}
-univariate_models <- lapply(names(data)[-1], function(var) {
-  cox_model <- coxph(Surv(fuyrs, status) ~ data[[var]], data = data)
-  return(list(variable = var, model = cox_model))
-})
+## Univariate Models
+Here we cycle through all variables of the dataset, excluding: the *patient ID* variable (which cannot possibly explain anything about the survival probability of patients), the *status* variable (which is the outcome) and the *fuyrs* variable (as it describes the follow-up time - hence, the censoring time).
 
-```
 
-```{r}
-for (item in univariate_models) {
-  print(item$variable)
-  print(summary(item$model))
+```{r Univariate Function loop}
+# The outcome variable is a survival object created with the time to event (fuyrs) and status indicator (status)
+surv_obj <- Surv(data$fuyrs, data$status)
+
+# Perform Cox regression for each predictor
+# Excluding paz.id from the analysis as it's an identifier, not a predictor
+variables <- c("log.lvmi", "sex", "age", "con.cabg", "creat", "lv", "sten.reg.mix")
+
+# Store results in a list for easy access
+univariate_models <- list()
+
+for (var in variables) {
+  # Formula to dynamically create the regression model
+  formula <- as.formula(paste("surv_obj ~", var))
   
+  # Fit the Cox model
+  model <- coxph(formula, data = data)
+  
+  # Print the summary of the model
+  print(summary(model))
+  
+  # Store the model in the list
+  univariate_models[[var]] <- model
 }
+```
+Belowa list of R code snippets is provided, in order to easily access each Univariate model, independently.
 
+```{r Univariate Left Ventricular Mass Index}
+univariate_models[["log.lvmi"]]
 ```
 
-```{r}
-  print(univariate_models[[1]]$variable)
-  print(summary(univariate_models[[1]]$model))
+```{r Univariate Sex}
+univariate_models[["sex"]]
 ```
 
-```{r}
-  print(univariate_models[[2]]$variable)
-  print(summary(univariate_models[[2]]$model))
+```{r Univariate Age}
+univariate_models[["age"]]
 ```
 
-
-```{r}
-  print(univariate_models[[3]]$variable)
-  print(summary(univariate_models[[3]]$model))
-```
-
-
-```{r}
-  print(univariate_models[[4]]$variable)
-  print(summary(univariate_models[[4]]$model))
+```{r Univariate Coronary Bypass}
+univariate_models[["con.cabg"]]
 ```
 
 
-```{r}
-  print(univariate_models[[5]]$variable)
-  print(summary(univariate_models[[5]]$model))
+```{r Univariate Creatinine}
+univariate_models[["creat"]]
 ```
 
 
-```{r}
-  print(univariate_models[[6]]$variable)
-  print(summary(univariate_models[[6]]$model))
+```{r Univariate Left Ventricular Ejection Fraction}
+univariate_models[["lv"]]
 ```
 
 
-```{r}
-  print(univariate_models[[7]]$variable)
-  print(summary(univariate_models[[7]]$model))
+```{r Univariate Hemodynamics of Heart Valve}
+univariate_models[["sten.reg.mix"]]
 ```
-
-
-```{r}
-  print(univariate_models[[8]]$variable)
-  print(summary(univariate_models[[8]]$model))
-```
-
-
-```{r}
-  print(univariate_models[[9]]$variable)
-  print(summary(univariate_models[[9]]$model))
-```
-
 ## Base model
 
 ```{r}
@@ -212,7 +206,38 @@ The Cox proportional hazards model shows significant effects of age, coronary ar
 
 Overall, the base model suggests that age, coronary artery bypass grafting, left ventricular function and stenosis severity are significant predictors of survival following heart valve transplant. Sex and creatinine levels (creat) do not appear to significantly affect survival. 
 
-The model has moderate predictive accuracy (Concordance = 0.783) and overall good fit according to model fit tests. 
+The model has moderate predictive accuracy (Concordance = 0.783) and overall good fit according to model fit tests.
+
+### Checking PH and Linearity
+To evaluate the functional form of continuous variables and ensure that the proportional hazards assumption holds for each covariate, we will visually inspect the Schoenfeld Residuals. Moreover, we will check the linearity of each continuous variable against the null model (without covariates).
+
+```{r Schoenfeld Residuals}
+# Evaluate the proportional hazards assumption using cox.zph function
+# This function performs a test of proportional hazards based on the scaled Schoenfeld residuals
+ph_test <- cox.zph(base_model)
+
+# Plotting the residuals to visually inspect any trend indicating non-proportionality
+plot(ph_test)  # Multiple plots if more than one covariate; assess each plot for trends over time
+
+# Output the global test of proportional hazards from cox.zph
+print(ph_test) # This will display the test statistics and p-values for each covariate
+
+# Check the linearity of continuous variables using Martingale residuals from a null model
+# This helps to verify if linear terms in the model are appropriate or need transformation
+null_model <- coxph(Surv(fuyrs, status) ~ 1, data = data) # Null model with no covariates
+
+# Selecting continuous variables to check for non-linearity
+continuous_vars <- c("age", "creat")
+
+# Plot Martingale residuals against each continuous variable
+par(mfrow=c(2, 1))  # Layout for plots, adjust depending on number of continuous variables
+for(var in continuous_vars) {
+  # Plot residuals against continuous variables
+  plot(data[[var]], residuals(null_model, type = "martingale"), xlab = var, ylab = "Martingale residuals", main = paste("Linearity Check for", var))
+  abline(h = 0, col = "red")  # Horizontal line at zero to aid in visual assessment
+}
+
+```
 
 
 ```{r}
