@@ -13,10 +13,12 @@ library(ggplot2)
 library(dplyr)
 library(readr)
 library(survival)
+library(pROC)
 library(survminer)
 library(randomForestSRC)
 library(gbm)
 library(utils) #For not having to upload the txt each time
+library(riskRegression) #For performance indicators
 ```
 
 # Dataset: ETL and EDA
@@ -186,14 +188,10 @@ univariate_models[["sten.reg.mix"]]
 ```
 ## Base model
 
-```{r}
+```{r Base Model}
 base_model <- coxph(Surv(fuyrs, status) ~ sex + age + con.cabg + creat + lv + sten.reg.mix, data = data)
+
 summary(base_model)
-
-
-fit1<-survfit(base_model,newdata=data)
-data$risk_base<-1-as.numeric(summary(fit1,times=5)$surv)
-
 ```
 
 The Cox proportional hazards model shows significant effects of age, coronary artery bypass grafting (con.cabg), left ventricular function (lv), and stenosis severity (sten.reg.mix) on survival time. In particular:
@@ -208,10 +206,10 @@ Overall, the base model suggests that age, coronary artery bypass grafting, left
 
 The model has moderate predictive accuracy (Concordance = 0.783) and overall good fit according to model fit tests.
 
-### Checking PH and Linearity
+### Checking Proportional Hazards assumptions and Linearity for Base Model
 To evaluate the functional form of continuous variables and ensure that the proportional hazards assumption holds for each covariate, we will visually inspect the Schoenfeld Residuals. Moreover, we will check the linearity of each continuous variable against the null model (without covariates).
 
-```{r Schoenfeld Residuals}
+```{r Schoenfeld and Martingale Residuals}
 # Evaluate the proportional hazards assumption using cox.zph function
 # This function performs a test of proportional hazards based on the scaled Schoenfeld residuals
 ph_test <- cox.zph(base_model)
@@ -223,20 +221,144 @@ plot(ph_test)  # Multiple plots if more than one covariate; assess each plot for
 print(ph_test) # This will display the test statistics and p-values for each covariate
 
 # Check the linearity of continuous variables using Martingale residuals from a null model
-# This helps to verify if linear terms in the model are appropriate or need transformation
 null_model <- coxph(Surv(fuyrs, status) ~ 1, data = data) # Null model with no covariates
 
 # Selecting continuous variables to check for non-linearity
 continuous_vars <- c("age", "creat")
 
 # Plot Martingale residuals against each continuous variable
-par(mfrow=c(2, 1))  # Layout for plots, adjust depending on number of continuous variables
 for(var in continuous_vars) {
   # Plot residuals against continuous variables
   plot(data[[var]], residuals(null_model, type = "martingale"), xlab = var, ylab = "Martingale residuals", main = paste("Linearity Check for", var))
   abline(h = 0, col = "red")  # Horizontal line at zero to aid in visual assessment
 }
 
+```
+
+
+## Augmented model
+
+```{r Augmented Model}
+augmented_model <- coxph(Surv(fuyrs, status) ~ sex + age + con.cabg + creat + lv + sten.reg.mix + log.lvmi, data = data)
+
+summary(augmented_model)
+```
+
+
+The results from the new augmented model, which now includes *log.lvmi* alongside other variables, provide significant insights into the factors influencing survival after heart valve implantation. In particular:
+1. Sex (Female): While the coefficient for females has increased slightly compared to the base model, it remains non-significant (p = 0.225493). The hazard ratio is 1.486, indicating a 48.6% higher risk of death for females compared to males, though this difference is not statistically robust. This might suggest some inherent but not definitive differences in outcomes by gender that are not captured fully by the model or sample size.
+2. **Age**: Consistently significant across both models, each additional year of age increases the risk of death by 10.3% (p = 6.15e-07). This confirms the substantial impact of age on survival post-surgery, reflecting the increased vulnerability and potential comorbidities associated with older age.
+3. **Coronary Artery Bypass Grafting (CABG) (Yes)**: The hazard ratio for CABG has slightly increased to 2.090, and it remains significant (p = 0.014313). This underlines the higher risk associated with patients who have had CABG, likely reflecting more severe baseline coronary artery disease.
+4. Creatinine (Creat): The effect of creatinine levels remains non-significant (p = 0.459702) with a very minimal hazard ratio change (1.004). This suggests that within this study population, creatinine levels are not a strong predictor of survival, possibly due to not reaching clinically critical levels.
+5. **Left Ventricular Function (LV)**: The effect of moderate ventricular function, in this augmented model, seems to become statistically significant at a level of 0.05 (p-value=0.047024), while the low ventricular function still remains highly significant (p-value=0.000189) with a very high hazard ratio of 5.272097. Again, low ventricular function is a strong predictor for both models, representing a significant risk factor for mortality post-surgery.
+6. **Stenosis Severity (Sten.reg.mix)**: The effect of stenosis severity remains non-significant for regurgitation (p-value=0.150625), while becoming statistically significant for mixed conditions (p-value=0.037195). Compared to stenosis, mixed conditions seem to show a protective effect (HR=0.392434, or 39.2% lower risk).
+7. **Logarithm of Left Ventricular Mass Index (log.lvmi)**: This newly added variable is significant (p = 0.001712) with a coefficient of 1.219381, translating into a hazard ratio of 3.385. This indicates that higher values of log-transformed left ventricular mass index substantially increase the risk of death.
+
+The inclusion of this last variable not only highlights its importance in clincical effects but also enhances the model's explanatory power, as seen in the improved concordance and significant test statistics (Likelihood ratio, Wald test, and logrank test).
+
+### Checking Proportional Hazards assumptions and Linearity for Augmented Model
+
+```{r Schoenfeld and Martingale Residuals}
+# Evaluate the proportional hazards assumption using cox.zph function
+# This function performs a test of proportional hazards based on the scaled Schoenfeld residuals
+ph_test_augmented <- cox.zph(augmented_model)
+
+# Plotting the residuals to visually inspect any trend indicating non-proportionality
+plot(ph_test_augmented)  # Multiple plots if more than one covariate; assess each plot for trends over time
+
+# Output the global test of proportional hazards from cox.zph
+print(ph_test_augmented) # This will display the test statistics and p-values for each covariate
+
+# Selecting continuous variables to check for non-linearity
+continuous_vars_augmented <- c("age", "creat", "log.lvmi")  # Now including log.lvmi
+
+# Plot Martingale residuals against each continuous variable
+for(var in continuous_vars_augmented) {
+  # Plot residuals against continuous variables
+  plot(data[[var]], residuals(null_model, type = "martingale"), xlab = var, ylab = "Martingale residuals", main = paste("Linearity Check for", var))
+  abline(h = 0, col = "red")  # Horizontal line at zero to aid in visual assessment
+}
+```
+
+## Augmented Model - Polynomial log.lvmi
+
+```{r Augmented Model Poly}
+augmented_model_poly <- coxph(Surv(fuyrs, status) ~ sex + age + con.cabg + creat + lv + sten.reg.mix + poly(log.lvmi, 3), data = data)
+
+summary(augmented_model_poly)
+```
+
+```{r}
+# Evaluate the proportional hazards assumption using the cox.zph function
+# This function tests the proportional hazards assumption based on the scaled Schoenfeld residuals
+ph_test_2 <- cox.zph(augmented_model_poly)
+
+# Plotting the residuals to visually inspect any trend indicating non-proportionality
+plot(ph_test_2)  # This generates multiple plots if there are multiple covariates
+
+# Print the global test of proportional hazards
+print(ph_test_2) # Displays test statistics and p-values for each covariate
+
+# Plot Martingale residuals against each continuous variable
+for(var in continuous_vars_augmented) {
+  # Plot residuals against continuous variables
+  plot(data[[var]], residuals(null_model, type = "martingale"), xlab = var, ylab = "Martingale residuals", main = paste("Linearity Check for", var))
+  abline(h = 0, col = "red")  # Horizontal line at zero to aid in visual assessment
+}
+```
+
+
+# Performance Evaluation
+
+## Calibration
+
+```{r}
+base_model <- coxph(Surv(fuyrs, status) ~ sex + age + con.cabg + creat + lv + sten.reg.mix, data = data, x=T)
+summary(base_model)
+fit1<-survfit(base_model,newdata=data)
+data$risk_base<-1-as.numeric(summary(fit1,times=5)$surv)
+```
+
+```{r}
+augmented_model <- coxph(Surv(fuyrs, status) ~ sex + age + con.cabg + creat + lv + sten.reg.mix + log.lvmi, data = data, x=T)
+
+fit2<-survfit(augmented_model,newdata=data)
+data$risk_augmented<-1-as.numeric(summary(fit2,times=5)$surv)
+```
+
+
+```{r}
+score <- Score(list("Base"=base_model,"Augmented"=augmented_model),
+              formula=Surv(fuyrs, status)~1,
+              data=data,conf.int=T,
+              times=seq(1,5,1),
+              plots=c("calibration","ROC"))
+plotROC(score,times=5,cens.method="local")
+title(main="time‐dependent ROC at 1 years")
+```
+```{r}
+# Assuming `time` is your follow-up time and `status` is your event indicator:
+# Calculate Brier score and AUC for the base model
+score_base <- Score(list(survival = Surv(data$fuyrs, data$status)), 
+                    formula = ~ risk_base, 
+                    data = data,
+                    times = c(1, 2, 3), # specify the times at which to calculate the scores
+                    cause = 1,
+                    estimator = "brier",
+                    summary = "auc")
+
+# Calculate Brier score and AUC for the augmented model
+score_augmented <- Score(list(survival = Surv(data$fuyrs, data$status)), 
+                         formula = ~ risk_augmented, 
+                         data = data,
+                         times = c(1, 2, 3), # specify the times at which to calculate the scores
+                         cause = 1,
+                         estimator = "brier",
+                         summary = "auc")
+
+# Print results
+print(score_base)
+print(score_augmented)
 ```
 
 
@@ -261,7 +383,7 @@ library(survival)
 # data <- data.frame(fuyrs = ..., status = ..., sex = ..., age = ..., con.cabg = ..., creat = ..., lv = ..., sten.reg.mix = ...)
 
 # Set up the data distribution for rms package
-dd <- datadist(heart.valve)
+dd <- datadist(data)
 options(datadist = 'dd')
 
 # Fit the Cox proportional hazards model using cph from rms package
@@ -301,6 +423,12 @@ print(paste("Brier Score: ", brier_score))
 
 
 ```{r}
+library(survival)
+library(rms)
+library(ggplot2)
+install.packages('survAUC')
+library(survAUC)
+library(rms)
 fit<-survfit(Surv(fuyrs, status) ~ 1, data)
 plot(fit, xlab='Years since transplant', ylab='Survival probability')
 ```
@@ -349,66 +477,7 @@ plot(cox.zph(base_model))
 predict(base_model, newdata = data.frame(sex = c(0, 1, 0), age = c(50, 60, 70), con.cabg = c(1, 0, 1), creat = c(1.2, 1.5, 1.3), lv = c(2, 3, 1), sten.reg.mix = c(1, 3, 2), log.lvmi = c(2.5, 3.0, 2.7)), type = "risk", times = 5)
 ```
 
-## Augmented model
 
-```{r}
-augmented_model <- coxph(Surv(fuyrs, status) ~ sex + age + con.cabg + creat + lv + sten.reg.mix + log.lvmi, data = data)
-
-summary(augmented_model)
-
-fit2<-survfit(augmented_model,newdata=data)
-data$risk_augmented<-1-as.numeric(summary(fit2,times=5)$surv)
-
-```
-
-
-The results from the new augmented model, which now includes *log.lvmi* alongside other variables, provide significant insights into the factors influencing survival after heart valve implantation. In particular:
-1. Sex (Female): While the coefficient for females has increased slightly compared to the base model, it remains non-significant (p = 0.225493). The hazard ratio is 1.486, indicating a 48.6% higher risk of death for females compared to males, though this difference is not statistically robust. This might suggest some inherent but not definitive differences in outcomes by gender that are not captured fully by the model or sample size.
-2. **Age**: Consistently significant across both models, each additional year of age increases the risk of death by 10.3% (p = 6.15e-07). This confirms the substantial impact of age on survival post-surgery, reflecting the increased vulnerability and potential comorbidities associated with older age.
-3. **Coronary Artery Bypass Grafting (CABG) (Yes)**: The hazard ratio for CABG has slightly increased to 2.090, and it remains significant (p = 0.014313). This underlines the higher risk associated with patients who have had CABG, likely reflecting more severe baseline coronary artery disease.
-4. Creatinine (Creat): The effect of creatinine levels remains non-significant (p = 0.459702) with a very minimal hazard ratio change (1.004). This suggests that within this study population, creatinine levels are not a strong predictor of survival, possibly due to not reaching clinically critical levels.
-5. **Left Ventricular Function (LV)**: The effect of moderate ventricular function, in this augmented model, seems to become statistically significant at a level of 0.05 (p-value=0.047024), while the low ventricular function still remains highly significant (p-value=0.000189) with a very high hazard ratio of 5.272097. Again, low ventricular function is a strong predictor for both models, representing a significant risk factor for mortality post-surgery.
-6. **Stenosis Severity (Sten.reg.mix)**: The effect of stenosis severity remains non-significant for regurgitation (p-value=0.150625), while becoming statistically significant for mixed conditions (p-value=0.037195). Compared to stenosis, mixed conditions seem to show a protective effect (HR=0.392434, or 39.2% lower risk).
-7. **Logarithm of Left Ventricular Mass Index (log.lvmi)**: This newly added variable is significant (p = 0.001712) with a coefficient of 1.219381, translating into a hazard ratio of 3.385. This indicates that higher values of log-transformed left ventricular mass index substantially increase the risk of death.
-
-The inclusion of this last variable not only highlights its importance in clincical effects but also enhances the model's explanatory power, as seen in the improved concordance and significant test statistics (Likelihood ratio, Wald test, and logrank test).
-
-
-```{r}
-# Evaluate functional form of continuous variables using Martingale residuals
-
-# Function to plot Martingale residuals for continuous variables - FUNCTIONAL FORM
-plot_martingale_aug <- function(variable) {
-  # Compute residuals
-  martingale_res <- residuals(augmented_model, type = "martingale")
-  
-  # Create a data frame for plotting
-  plot_data <- data.frame(Variable = data[[variable]], Residuals = martingale_res)
-  
-  # Plot
-  ggplot(plot_data, aes(x = Variable, y = Residuals)) +
-    geom_point(alpha = 0.5) +
-    geom_smooth(method = "loess", color = "red") +
-    labs(title = paste("Martingale residuals vs", variable),
-         x = variable,
-         y = "Martingale Residuals")
-}
-
-# Plot Martingale residuals for 'age', 'creat' and 'log.lvmi' - FUNCTIONAL FORM
-plot_martingale_aug("age")
-plot_martingale_aug("creat")
-plot_martingale_aug("log.lvmi")
-
-```
-
-```{r}
-# Check the proportional hazards assumption for the augmented model
-cox.zph(augmented_model)
-
-
-# Plot the Schoenfeld residuals for the augmented model
-plot(cox.zph(augmented_model))
-```
 
 ```{r}
 
@@ -681,60 +750,5 @@ data
 ```{r}
 library(dcurves)
 dca(Surv(fuyrs, status==1) ~ risk_base + risk_augmented, data, time = 5)
-```
-
-##ALEX TEST
-
-```{r}
-# Function to run univariate Cox model and return summary
-run_cox_model <- function(variable) {
-  formula <- as.formula(paste("Surv(fuyrs, status) ~", variable))
-  model <- coxph(formula, data = data)
-  summary(model)
-}
-
-# List of variables to test
-variables <- c("log.lvmi", "sex", "age", "con.cabg", "creat", "lv", "sten.reg.mix")
-
-# Apply the function to each variable and store results
-model_results <- lapply(variables, run_cox_model)
-
-# Print the results
-model_results
-
-
-
-```
-
-#REDUCED RANK REGRESSION (TEST)
-
-```{r}
-library(survival)
-
-# Define the reduced rank structure matrix
-# Here, let's say we want to reduce the rank to 2
-# So, we have a 7x2 structure matrix
-structure_matrix <- matrix(0, nrow = 7, ncol = 2)
-
-# Filling the structure matrix with appropriate coefficients
-# For simplicity, let's assume all coefficients are 1
-structure_matrix[] <- 1
-
-# Fit the Cox proportional hazards model with reduced rank
-reduced_rank_model <- coxph(Surv(fuyrs, status) ~ sex + age + con.cabg + creat + lv + sten.reg.mix + log.lvmi +
-                               tt(sex) + tt(age) + tt(con.cabg) + tt(creat) + tt(lv) + tt(sten.reg.mix) + tt(log.lvmi),
-                            tt = structure_matrix,
-                            data = data)
-
-# Summary of the reduced rank model
-summary(reduced_rank_model)
-
-# Compare the old model with the new one
-print("Old Model:")
-summary(augmented_model)
-print("Reduced Rank Model:")
-summary(reduced_rank_model)
-
-
 ```
 
