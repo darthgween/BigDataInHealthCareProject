@@ -442,6 +442,12 @@ lines(bas$time, surv_patientCP, type='s', lwd=2,col=2)
 
 ##TEST
 
+
+data$sex <- factor(data$sex, levels = c(0, 1), labels = c("Male", "Female"))
+data$con.cabg <- factor(data$con.cabg, levels = c(0, 1), labels = c("No", "Yes"))
+data$lv <- factor(data$lv, levels = c(1, 2, 3), labels = c("High", "Moderate", "Low"))
+data$sten.reg.mix <- factor(data$sten.reg.mix, levels = c(1, 2, 3), labels = c("Stenosis", "Regurgitation", "Mixed"))
+
 ```{r}
 
 # Development of the basic cox model without log.lvmi
@@ -455,12 +461,12 @@ summary(augmented_model)
 # Prediction of event risk at a fixed time-point (e.g., 5 years) for 3 "type" subjects
 # Create example subjects
 type_subjects <- data.frame(
-  sex = c(0, 1, 0),
+  sex = c("Male", "Female", "Male"),
   age = c(60, 70, 65),
-  con.cabg = c(1, 0, 1),
+  con.cabg = c("Yes", "No", "Yes"),
   creat = c(100, 150, 120),
-  lv = c(1, 2, 3),
-  sten.reg.mix = c(1, 2, 3),
+  lv = c("High", "Moderate", "Low"),
+  sten.reg.mix = c("Stenosis", "Regurgitation", "Mixed"),
   log.lvmi = c(log(150), log(170), log(160))
 )
 
