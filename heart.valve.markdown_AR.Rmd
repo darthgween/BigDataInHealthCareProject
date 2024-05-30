@@ -1,0 +1,576 @@
+---
+title: "data.data"
+output:
+  html_document:
+    df_print: paged
+editor_options: 
+  markdown: 
+    wrap: sentence
+---
+
+**Project Big Data in Healthcare**
+
+*Alessandro Rota(798050), Matteo Mondini(), Alexandre Crivellari(), Yasmin Bouhdada().*
+
+# Index
+
+1.  [Library]
+
+2.  [Importing Data]
+
+3.  [Dataset Variables]
+
+4.  [Descriptive analysis]
+
+    1.  [Dataset info]
+
+    2.  [Age analysis]
+
+    3.  [Sex analysis]
+
+    4.  [Correlation between variables]
+
+    5.  [Detailed Variable Description]
+
+5.  [Models]
+
+    1.  [Univariate Models]
+
+    2.  [Base model]
+
+    3.  [Augmented Model]
+
+    4.  [Augmented Model - Polynomial Transformation for PH]
+
+6.  [Performance Evaluation]
+
+    1.  [Calibration]
+        -   [Brier Score]
+        -   [ROC AUC]
+        -   [NET BENEFIT]
+
+7.  [Model Predictions]
+
+# Library
+
+```{r Libraries}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2) # For plotting
+library(dplyr) # For data handling
+library(readr)
+library(survival) # Main library, used for implementing Cox Modeling
+library(pROC) # For plotting ROC curves
+library(survminer)
+library(utils) #For not having to upload the txt each time
+#library(riskRegression) # For performance indicators
+```
+
+# Importing Data
+
+```{r Importing data from shared GitHub}
+
+#setwd('~/Desktop/Data Science/Data Science Lab in Medicine/Big Data in Health Care/')
+url <- "https://raw.githubusercontent.com/darthgween/BigDataInHealthCareProject/main/heart.valve.txt?token=GHSAT0AAAAAACR3GYSXO5Z3ARKVQY2S6SYSZRYZQWA"
+data <- read.table(url, header = TRUE)
+head(data)
+```
+
+# Dataset Variables
+
+-   ***Paz.id***: patient identification number.
+
+-   ***log.lvmi***: natural logarithm of the “Left Ventricular Mass Index” (standardized) measured at baseline.
+
+-   ***fuyrs***: follow-up time from surgery, in years.
+
+-   ***status***: event indicator (1 = dead; 0 = censored).
+
+-   ***sex***: sex of the patient (0 = M; 1 = F).
+
+-   ***age***: age of the patient (years) at surgery.
+
+-   ***con.cabg***: presence of coronary bypass (1 = yes; 0 = no).
+
+-   ***creat***: pre-operative serum creatinine (µmol/mL).
+
+-   ***lv***: pre-operative left ventricular ejection fraction (1 = high, 2 = moderate, 3 = low).
+
+-   ***sten.reg.mix***: hemodynamics of the heart valve (1 = stenosis, 2 = regurgitation, 3 = mixed).
+
+# Descriptive analysis
+
+## Dataset info
+
+-   Dimension
+
+```{r Dimensions}
+dim(data)
+```
+
+-   Object structure
+
+```{r Check for data structure and types}
+str(data)
+```
+
+-   Measures of central tendency
+
+```{r Dataset Summary for all variables}
+summary(data)
+```
+
+## Age analysis
+
+This information is crucial for understanding the demographics of the patient population and tailoring perioperative care.
+Typically, heart valve disease prevalence increases with age, with most patients being in the older age brackets.
+For instance, older patients (above 65 years) are at higher risk for complications and may require more intensive postoperative care.
+
+```{r Age Histogram}
+ggplot(data, aes(x = age)) +
+  geom_histogram(binwidth = 5, fill = "lightblue", color = "black") +
+  ggtitle("Age distribution") +
+  xlab("Età") +
+  ylab("Frequenza")
+```
+
+## Sex analysis
+
+Out of 255 Observations 73 of them are Female and 182 are male.
+
+```{r}
+sum_males <- sum(data$sex == 0)
+sum_females <- sum(data$sex == 1)
+
+cat("Number of males:", sum_males, "\n")
+cat("Number of females:", sum_females, "\n")
+```
+
+```{r}
+#data$sex <- factor(data$sex, levels = c(0, 1), labels = c("M", "F")
+ggplot(data, aes(x = sex, fill = sex)) + 
+  geom_bar() + 
+  scale_fill_manual(values = c("Male" = "blue", "Female" = "pink")) +
+  xlab("Sex") + 
+  ylab("Count") +
+  ggtitle("Distribution by Sex") +
+  theme_minimal()
+
+```
+
+## Correlation between variables
+
+Correlation matrices help identify the strength and direction of linear relationships between continuous variables.
+Understanding these relationships is crucial in clinical research as it highlights potential interactions and multicollinearity between variables.
+
+```{r Transforming variables into Categoric}
+
+data$sex <- factor(data$sex, levels = c(0, 1), labels = c("Male", "Female"))
+data$con.cabg <- factor(data$con.cabg, levels = c(0, 1), labels = c("No", "Yes"))
+data$lv <- factor(data$lv, levels = c(1, 2, 3), labels = c("High", "Moderate", "Low"))
+data$sten.reg.mix <- factor(data$sten.reg.mix, levels = c(1, 2, 3), labels = c("Stenosis", "Regurgitation", "Mixed"))
+
+```
+
+
+```{r}
+library(corrplot)
+
+# Escludo colonna "paz.id"
+numeric_data <- data %>%
+  select(-paz.id) %>%
+  select_if(is.numeric)
+
+# Compute correlation matrix
+cor_matrix <- cor(numeric_data, use = "complete.obs")
+corrplot(cor_matrix, method = "color", type = "upper", order = "hclust", 
+         tl.col = "black", tl.srt = 45, addCoef.col = "black")
+```
+
+
+
+## Detailed Variable Description
+
+###Left Ventricular Mass Index
+
+The Left Ventricular Mass Index (LVMI) is a measurement that reflects the mass of the left ventricle of the heart relative to the individual’s body surface area (BSA).
+It is an important indicator of cardiac health, often used to diagnose and monitor conditions like left ventricular hypertrophy (LVH), which is the thickening of the heart’s left ventricular walls.
+
+**Normal and Balanced Values:**
+
+Men:
+
+• Normal LVMI: less than 115 g/m²
+
+• Logarithmic (ln) Normal LVMI: ln(115) ≈ 4.74
+
+Women:
+
+• Normal LVMI: less than 95 g/m²
+
+• Logarithmic (ln) Normal LVMI: ln(95) ≈ 4.55
+
+```{r Boxplot log.lvmi - Status}
+ggplot(data, aes(x = factor(status), y = log.lvmi, fill = factor(status))) +
+  geom_boxplot() +
+  ggtitle("Boxplot of log.lvmi for Status") +
+  xlab("Status") +
+  ylab("log.lvmi") +
+  scale_fill_discrete(name = "Status")
+
+```
+
+### creat: Pre-operative serum creatinine levels (µmol/L)
+
+A measure of kidney function.
+Normal levels are 44-80 µmol/L for women and 62-106 µmol/L for men.
+Elevated creatinine levels suggest renal impairment, a risk factor for surgical complications.
+
+### lv: Pre-operative left ventricular ejection fraction
+
+A measure of how well the left ventricle pumps blood with each beat.Low ejection fraction indicates heart failure and a higher surgical risk
+
+### sten.reg.mix: hemodynamics of the heart valve (1 = stenosis, 2 = regurgitation, 3 = mixed)
+
+Describes the hemodynamic characteristics of the heart valve.
+Different types of valve disease require specific surgical and medical management.
+
+# Models
+
+## Univariate Models
+
+Here we cycle through all variables of the dataset, excluding: the *patient ID* variable (which cannot possibly explain anything about the survival probability of patients), the *status* variable (which is the outcome) and the *fuyrs* variable (as it describes the follow-up time - hence, the censoring time).
+
+```{r Univariate Function loop}
+# The outcome variable is a survival object created with the time to event (fuyrs) and status indicator (status)
+surv_obj <- Surv(data$fuyrs, data$status)
+
+# Perform Cox regression for each predictor
+# Excluding paz.id from the analysis as it's an identifier, not a predictor
+variables <- c("log.lvmi", "sex", "age", "con.cabg", "creat", "lv", "sten.reg.mix")
+
+# Store results in a list for easy access
+univariate_models <- list()
+
+for (var in variables) {
+  # Formula to dynamically create the regression model
+  formula <- as.formula(paste("surv_obj ~", var))
+  
+  # Fit the Cox model
+  model <- coxph(formula, data = data)
+  
+  # Print the summary of the model
+  print(summary(model))
+  
+  # Store the model in the list
+  univariate_models[[var]] <- model
+}
+```
+
+Belowa list of R code snippets is provided, in order to easily access each Univariate model, independently.
+
+```{r Univariate Left Ventricular Mass Index}
+univariate_models[["log.lvmi"]]
+```
+
+```{r Univariate Sex}
+univariate_models[["sex"]]
+```
+
+```{r Univariate Age}
+univariate_models[["age"]]
+```
+
+```{r Univariate Coronary Bypass}
+univariate_models[["con.cabg"]]
+```
+
+```{r Univariate Creatinine}
+univariate_models[["creat"]]
+```
+
+```{r Univariate Left Ventricular Ejection Fraction}
+univariate_models[["lv"]]
+```
+
+```{r Univariate Hemodynamics of Heart Valve}
+univariate_models[["sten.reg.mix"]]
+```
+
+## Base model
+
+```{r Base Model}
+base_model <- coxph(Surv(fuyrs, status) ~ sex + age + con.cabg + creat + lv + sten.reg.mix, data = data, x=T)
+
+summary(base_model)
+```
+
+The Cox proportional hazards model shows significant effects of age, coronary artery bypass grafting (con.cabg), left ventricular function (lv), and stenosis severity (sten.reg.mix) on survival time.
+In particular: 1.
+Sex: the variable sex does not show a significant effect (p-value = 0.392228) on survival.
+The hazard ratio for females (1.317) would suggest a higher risk compared to males, but the wide confidence interval (0.7009 to 2.475) and high p-value indicate that this effect is not statistically robust.
+In many clinical studies, sex may influence outcomes due to differences in biological responses or treatment approaches, but in this dataset, it appears not to be a major factor.
+2.
+**Age**: The Hazard Ratio (HR) for Age is higher than 1 (1.103996) and highly significant (p-value = 3.82e-07), indicating that for each additional year of age, the risk of death increases by about 10.39%.
+Age is a known risk factor in survival studies, particularly in cardiac procedures, where older patients typically have a higher risk due to greater frailty and the likelihood of comorbid conditions.
+3.
+**Coronary Artery Bypass Grafting (CABG) (con.cabg)**: The presence of CABG (indicated by con.cabgYes) is associated with a significantly higher risk of death (p-value = 0.027932).
+The hazard ratio of 1.916 suggests that patients who have undergone CABG have about 91.6% higher risk of death compared to those who have not.
+This might reflect the severity of coronary artery disease in patients requiring CABG, which can complicate heart valve surgery outcomes.
+4.
+Creatinine Levels (creat): The creatinine level shows a minimal impact on the hazard (coef = 0.006730) with a p-value of 0.131411, suggesting that within the range of creatinine levels in this study population, there isn't a strong or significant association with survival outcomes.
+Creatinine levels are a marker of kidney function, which can be crucial in overall health status but may not directly influence survival outcomes post-surgery unless reaching more extreme values.
+5.
+**Left Ventricular Function (lv)**: Given a level of significance equal to 0.05, a moderate ventricular function (lvModerate) seems to not be a significant predictor for mortality following heart valve transplant.
+On the contrary, lvLow is highly significant (p-value = 0.000232) with a Hazard Ratio of 5.182, indicating a substantial increase (more than 5 times more) in risk for patients with low ventricular function.
+This is consistent with clinical expectations, as poor ventricular function can severely impact the heart's ability to pump blood effectively after surgery.
+6.
+Stenosis Severity (sten.reg.mix): The severity of valve stenosis or mixed conditions shows no significant effect on survival at the 0.05 level of significance.
+However, the negative coefficients for regurgitation (-0.619062) and mixed (-0.812285) suggest a protective effect compared to stenosis (though, again, not statistically significant).
+This might indicate different pathophysiological impacts of these conditions on patient outcomes, potentially moderated by other factors not included in the model.
+
+Overall, the base model suggests that age, coronary artery bypass grafting, left ventricular function and stenosis severity are significant predictors of survival following heart valve transplant.
+Sex and creatinine levels (creat) do not appear to significantly affect survival.
+
+The model has moderate predictive accuracy (Concordance = 0.783) and overall good fit according to model fit tests.
+
+To evaluate the functional form of continuous variables and ensure that the proportional hazards assumption holds for each covariate, we will visually inspect the Schoenfeld Residuals.
+Moreover, we will check the linearity of each continuous variable against the null model (without covariates).
+
+```{r Schoenfeld and Martingale Residuals}
+# Evaluate the proportional hazards assumption using cox.zph function
+# This function performs a test of proportional hazards based on the scaled Schoenfeld residuals
+ph_test <- cox.zph(base_model)
+
+# Plotting the residuals to visually inspect any trend indicating non-proportionality
+plot(ph_test)  # Multiple plots if more than one covariate; assess each plot for trends over time
+
+# Output the global test of proportional hazards from cox.zph
+print(ph_test) # This will display the test statistics and p-values for each covariate
+
+# Check the linearity of continuous variables using Martingale residuals from a null model
+null_model <- coxph(Surv(fuyrs, status) ~ 1, data = data) # Null model with no covariates
+
+# Selecting continuous variables to check for non-linearity
+continuous_vars <- c("age", "creat")
+
+# Plot Martingale residuals against each continuous variable
+for(var in continuous_vars) {
+  # Plot residuals against continuous variables
+  plot(data[[var]], residuals(null_model, type = "martingale"), xlab = var, ylab = "Martingale residuals", main = paste("Linearity Check for", var))
+  abline(h = 0, col = "red")  # Horizontal line at zero to aid in visual assessment
+}
+
+```
+
+## Augmented Model
+
+```{r Augmented Model}
+augmented_model <- coxph(Surv(fuyrs, status) ~ sex + age + con.cabg + creat + lv + sten.reg.mix + log.lvmi, data = data, x=T)
+
+summary(augmented_model)
+```
+
+The results from the new augmented model, which now includes *log.lvmi* alongside other variables, provide significant insights into the factors influencing survival after heart valve implantation.
+In particular: 1.
+Sex (Female): While the coefficient for females has increased slightly compared to the base model, it remains non-significant (p = 0.225493).
+The hazard ratio is 1.486, indicating a 48.6% higher risk of death for females compared to males, though this difference is not statistically robust.
+This might suggest some inherent but not definitive differences in outcomes by gender that are not captured fully by the model or sample size.
+2.
+**Age**: Consistently significant across both models, each additional year of age increases the risk of death by 10.3% (p = 6.15e-07).
+This confirms the substantial impact of age on survival post-surgery, reflecting the increased vulnerability and potential comorbidities associated with older age.
+3.
+**Coronary Artery Bypass Grafting (CABG) (Yes)**: The hazard ratio for CABG has slightly increased to 2.090, and it remains significant (p = 0.014313).
+This underlines the higher risk associated with patients who have had CABG, likely reflecting more severe baseline coronary artery disease.
+4.
+Creatinine (Creat): The effect of creatinine levels remains non-significant (p = 0.459702) with a very minimal hazard ratio change (1.004).
+This suggests that within this study population, creatinine levels are not a strong predictor of survival, possibly due to not reaching clinically critical levels.
+5.
+**Left Ventricular Function (LV)**: The effect of moderate ventricular function, in this augmented model, seems to become statistically significant at a level of 0.05 (p-value=0.047024), while the low ventricular function still remains highly significant (p-value=0.000189) with a very high hazard ratio of 5.272097.
+Again, low ventricular function is a strong predictor for both models, representing a significant risk factor for mortality post-surgery.
+6.
+**Stenosis Severity (Sten.reg.mix)**: The effect of stenosis severity remains non-significant for regurgitation (p-value=0.150625), while becoming statistically significant for mixed conditions (p-value=0.037195).
+Compared to stenosis, mixed conditions seem to show a protective effect (HR=0.392434, or 39.2% lower risk).
+7.
+**Logarithm of Left Ventricular Mass Index (log.lvmi)**: This newly added variable is significant (p = 0.001712) with a coefficient of 1.219381, translating into a hazard ratio of 3.385.
+This indicates that higher values of log-transformed left ventricular mass index substantially increase the risk of death.
+
+The inclusion of this last variable not only highlights its importance in clincical effects but also enhances the model's explanatory power, as seen in the improved concordance and significant test statistics (Likelihood ratio, Wald test, and logrank test).
+
+Again, to evaluate the functional form of continuous variables and ensure that the proportional hazards assumption holds for each covariate, we will visually inspect the Schoenfeld Residuals.
+Moreover, we will check the linearity of each continuous variable against the null model (without covariates).
+
+```{r Schoenfeld and Martingale Residuals}
+# Evaluate the proportional hazards assumption using cox.zph function
+# This function performs a test of proportional hazards based on the scaled Schoenfeld residuals
+ph_test_augmented <- cox.zph(augmented_model)
+
+# Plotting the residuals to visually inspect any trend indicating non-proportionality
+plot(ph_test_augmented)  # Multiple plots if more than one covariate; assess each plot for trends over time
+
+# Output the global test of proportional hazards from cox.zph
+print(ph_test_augmented) # This will display the test statistics and p-values for each covariate
+
+# Selecting continuous variables to check for non-linearity
+continuous_vars_augmented <- c("age", "creat", "log.lvmi")  # Now including log.lvmi
+
+# Plot Martingale residuals against each continuous variable
+for(var in continuous_vars_augmented) {
+  # Plot residuals against continuous variables
+  plot(data[[var]], residuals(null_model, type = "martingale"), xlab = var, ylab = "Martingale residuals", main = paste("Linearity Check for", var))
+  abline(h = 0, col = "red")  # Horizontal line at zero to aid in visual assessment
+}
+```
+
+## Augmented Model - Polynomial Transformation for PH
+
+```{r Augmented Polynomial}
+augmented_model_2 <- coxph(Surv(fuyrs, status) ~ sex + age + con.cabg + creat + lv + sten.reg.mix + poly(log.lvmi, 3), data = data, x=T)
+
+summary(augmented_model_2)
+```
+
+```{r Schonefeld and Martingale Residuals}
+# Evaluate the proportional hazards assumption using the cox.zph function
+# This function tests the proportional hazards assumption based on the scaled Schoenfeld residuals
+ph_test_2 <- cox.zph(augmented_model_2)
+
+# Plotting the residuals to visually inspect any trend indicating non-proportionality
+plot(ph_test_2)  # This generates multiple plots if there are multiple covariates
+
+# Print the global test of proportional hazards
+print(ph_test_2) # Displays test statistics and p-values for each covariate
+```
+
+# Performance Evaluation
+
+## Calibration
+
+```{r Base Model predictions}
+fit1<-survfit(base_model,newdata=data)
+data$risk_base<-1-as.numeric(summary(fit1,times=5)$surv)
+```
+
+```{r Augmented Model predictions}
+fit2<-survfit(augmented_model_2,newdata=data)
+data$risk_augmented_2<-1-as.numeric(summary(fit2,times=5)$surv)
+```
+
+```{r Scores for ROC and Calibration Plot}
+library(riskRegression)
+score <- Score(list("Base"=base_model,"Augmented Poly"=augmented_model_2),
+              formula=Surv(fuyrs, status==1)~1,
+              data=data,conf.int=T,
+              times=seq(1,5,1),
+              plots=c("calibration","ROC"))
+
+plotCalibration(score,times=5,cens.method="local",method="quantile",q=10)
+title(main="Calibration Plot at 5 years")
+
+```
+
+```{r Plotting the ROC Curves}
+plotROC(score,times=5,cens.method="local")
+title(main="time-dependent ROC at 5 years")
+```
+
+```{r Bootstrapping for internal validation}
+CVscore <- Score(list("Base"=base_model,"Augmented"=augmented_model),
+              formula=Surv(fuyrs, status==1)~1,
+              data=data,conf.int=T,
+              times=seq(1,5,1),
+              split.method="loob",B=100,seed=1000)
+
+summary(CVscore)
+```
+
+```{r}
+
+# Predictions for augmented model
+predict(augmented_model_2, newdata = data.frame(sex = c(0, 1, 0), age = c(50, 60, 80), con.cabg = c(1, 0, 1), creat = c(1.2, 1.5, 1.3), lv = c(2, 3, 1), sten.reg.mix = c(1, 3, 2), log.lvmi = c(2.5, 3.0, 2.7)), type = "risk", times = 5)
+```
+
+### Brier Score
+
+```{r}
+# indicator of death within 5 year
+data$status.5y<-ifelse(data$fuyrs<=5,1,0)
+# Brier Score
+(BS_base <- mean((data$status.5y - data$risk_base) ^ 2)) 
+(BS_augmented <- mean((data$status.5y - data$risk_augmented) ^ 2))
+
+```
+
+While the differences in Brier scores are small, the base model outperforms the augmented model in terms of predictive accuracy.
+This suggests that the additional variables included in the augmented model do not contribute positively to prediction and may even introduce noise, reducing overall performance.
+
+```{r}
+BS_basesc  <- mean(data$risk_base*(1-data$risk_base))
+BS_augmentedsc <- mean(data$risk_augmented*(1-data$risk_augmented))
+
+BS_base-BS_basesc
+BS_augmented-BS_augmentedsc
+```
+
+## Discrimination
+
+### ROC AUC
+
+```{r}
+roc1<-roc(data$status.5y, data$risk_base)
+plot(1 - roc1$specificities, roc1$sensitivities, 
+     type = 'l', ylab = 'TPF', xlab = 'FPF', lwd = 3, xaxt = "n", yaxt = "n", 
+     xlim = c(0,1), cex.lab = 1.7, frame = F)
+axis(1, at = c(0,0.25,0.5,0.75,1), labels = NA, pos = 0)
+axis(1, at = c(0,0.25,0.5,0.75,1), labels = c(0,0.25,0.5,0.75,1), cex.axis = 1.7, pos = 0)
+axis(2, at = c(0,0.25,0.5,0.75,1), labels = c(0,0.25,0.5,0.75,1), cex.axis = 1.7, pos = 0)
+Youden1<-roc1$sensitivities+roc1$specificities-1
+optimal.cut.off1<-roc1$thresholds[Youden1==max(Youden1)]
+cbind(optimal.cut.off1,Youden=max(Youden1))
+points(1-roc1$specificities[roc1$thresholds==optimal.cut.off1],roc1$sensitivities[roc1$thresholds==optimal.cut.off1],pch=0,cex=1.7)
+
+roc2<-roc(data$status.5y, data$risk_augmented)
+
+lines(1 - roc2$specificities, roc2$sensitivities, 
+      lwd = 3, lty = 3)
+Youden2<-roc2$sensitivities+roc2$specificities-1
+optimal.cut.off2<-roc2$thresholds[Youden2==max(Youden2)]
+cbind(optimal.cut.off2,Youden=max(Youden2))
+
+
+points(1-roc2$specificities[roc2$thresholds==optimal.cut.off2],roc2$sensitivities[roc2$thresholds==optimal.cut.off2],pch=0,cex=1.7)
+
+# Chance line:
+abline(a=0, b=1, lty = 2, lwd = 2)
+lines(c(0,1), c(1,1), lty = 1)
+lines(c(1,1), c(0,1), lty = 1)
+
+legend(x = 0, y = 1, c("model1","model2"), lwd = c(3,3), lty = c(1,3), bty = 'n', cex = 1.7)
+
+
+```
+
+```{r}
+(AUC1 <- roc1$auc)
+(AUC2 <- roc2$auc)   
+AUC2 - AUC1
+```
+
+### Youden Index
+
+
+## Net Benefit
+
+```{r}
+library(dcurves)
+dca(Surv(fuyrs, status==1) ~ risk_base + risk_augmented, data, time = 5)
+```
+
+# Model Predictions
+
+```{r TEST PREDICTION}
+
+# same result, using survfit:
+fit<-survfit(base_model,newdata=data.frame(sex=0,age=50,con.cabg=1,creat=1.2,lv=2,sten.reg.mix=1,log.lvmi=2.5))
+surv_patientCP<-fit$surv
+lines(bas$time, surv_patientCP, type='s', lwd=2,col=2)
+```
