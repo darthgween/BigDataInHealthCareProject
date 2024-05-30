@@ -314,6 +314,8 @@ print(cox.zph_stratified)
 
 
 ```
+
+
 The strata function in the coxph model does not include the stratified variable (log.lvmi_cat) in the coefficients table because stratification means the model estimates separate baseline hazard functions for each stratum without directly estimating coefficients for the stratified variable. This allows the hazard functions to differ across the strata, addressing the proportional hazards assumption for the stratified variable without explicitly modeling its effect as a coefficient.
 
 
@@ -415,6 +417,7 @@ plotCalibration(score,times=5,cens.method="local",method="quantile",q=10)
 title(main="Calibration Plot at 5 years")
 
 ```
+
 ```{r Plotting the ROC Curves}
 plotROC(score,times=5,cens.method="local")
 title(main="time-dependent ROC at 5 years")
@@ -438,68 +441,50 @@ library(survminer)
 # Fit the models
 fit1 <- survfit(base_model, newdata=data)
 fit2 <- survfit(augmented_model, newdata=data)
-fit3 <- survfit(augmented_model_poly, newdata=data)
-fit4 <- survfit(stratified_model, newdata=data)
+fit3 <- survfit(stratified_model, newdata=data)
 
 # Calculate risk for each model
 data$risk_base <- 1 - as.numeric(summary(fit1, times=5)$surv)
 data$risk_augmented <- 1 - as.numeric(summary(fit2, times=5)$surv)
-data$risk_augmented_poly <- 1 - as.numeric(summary(fit3, times=5)$surv)
-data$risk_augmented_strata <- 1 - as.numeric(summary(fit4, times=5)$surv)
+data$risk_augmented_strata <- 1 - as.numeric(summary(fit3, times=5)$surv)
 
 # Calculate Concordance Index (C-index)
 cindex_base <- summary(base_model)$concordance
 cindex_augmented <- summary(augmented_model)$concordance
-cindex_augmented_poly <- summary(augmented_model_poly)$concordance
 cindex_stratified <- summary(stratified_model)$concordance
 
 cindex_base
 cindex_augmented
-cindex_augmented_poly
 cindex_stratified
 
 # Plot Kaplan-Meier Curves
 #ggsurvplot(fit1, data = data, risk.table = TRUE, title = "Base Model")
 #ggsurvplot(fit2, data = data, risk.table = TRUE, title = "Augmented Model")
-#ggsurvplot(fit3, data = data, risk.table = TRUE, title = "Augmented Model with Polynomial Terms")
 #ggsurvplot(fit4, data = data, risk.table = TRUE, title = "Stratified Model")
 
 # Perform Likelihood Ratio Test
-anova(base_model, augmented_model, augmented_model_poly, stratified_model, test="LRT")
+anova(base_model, augmented_model, stratified_model, test="LRT")
 
 # Calculate AIC
 aic_base <- AIC(base_model)
 aic_augmented <- AIC(augmented_model)
-aic_augmented_poly <- AIC(augmented_model_poly)
 aic_stratified <- AIC(stratified_model)
 
 aic_base
 aic_augmented
-aic_augmented_poly
 aic_stratified
 
 ```
 The C-index values are relatively close to each other, indicating that all models have a similar discriminatory power. The augmented models (with and without polynomial terms) have slightly higher C-index values compared to the base model, suggesting a modest improvement in predictive accuracy. The stratified model also shows a high C-index but is slightly lower than the augmented models.
 
-The likelihood ratio test results show that the augmented model (Model 2) significantly improves the fit over the base model (Model 1) with a p-value of 0.001966. However, adding polynomial terms (Model 3) does not significantly improve the fit compared to the augmented model (Model 2), as indicated by the non-significant p-value of 0.375014.
-
-The stratified model (Model 4) shows a substantial improvement over the other models, with a highly significant p-value (p < 2.2e-16). This suggests that incorporating stratification based on log.lvmi_cat significantly improves the model fit.
+The likelihood ratio test results show that the augmented model (Model 2) significantly improves the fit over the base model (Model 1) with a p-value of 0.001966. The stratified model (Model 4) shows a substantial improvement over the other models, with a highly significant p-value (p < 2.2e-16). This suggests that incorporating stratification based on log.lvmi_cat significantly improves the model fit.
 
 The AIC values indicate that the stratified model (Model 4) has the lowest AIC, suggesting it provides the best fit among the models. The augmented model (Model 2) has a lower AIC than the base model (Model 1), indicating a better fit. The augmented model with polynomial terms (Model 3) has a slightly higher AIC than Model 2, supporting the likelihood ratio test result that adding polynomial terms does not significantly improve the model.
 
 In conclusion, the stratified model (Model 4) is the best-performing model, providing significant improvements in fit and predictive accuracy. The simple augmented model (Model 2) also performs well, offering a good balance of complexity and performance.
 
 ### Brier Score
-```{r}
-# indicator of death within 5 year
-data$status.5y<-ifelse(data$fuyrs<=5,1,0)
-# Brier Score
-(BS_base <- mean((data$status.5y - data$risk_base) ^ 2)) 
-(BS_augmented <- mean((data$status.5y - data$risk_augmented) ^ 2))
-(BS_poly <- mean((data$status.5y - data$risk_augmented_poly) ^ 2))
-(BS_strata <- mean((data$status.5y - data$risk_augmented_strata) ^ 2)) 
 
-```
 The Brier scores for your models provide insight into their predictive accuracy at the 5-year mark. The base model has the lowest Brier score (0.3476), indicating the best predictive performance. The augmented model (0.3550) and the stratified model (0.3547) both have slightly higher Brier scores, suggesting a marginal decrease in predictive accuracy compared to the base model. The augmented model with polynomial terms has the highest Brier score (0.3593), indicating that the added complexity did not improve and actually slightly worsened predictive accuracy. Overall, the base model performs the best in terms of predictive accuracy, while the augmented and stratified models do not offer substantial improvements and the polynomial terms appear to detract from the model's performance.
 
 The discrepancy between the Brier scores and metrics like AIC and the likelihood ratio test arises because they measure different aspects of model performance. The Brier score directly assesses prediction accuracy at a specific time point (5 years), while AIC evaluates overall model fit with a penalty for complexity, and the likelihood ratio test checks for significant improvements with additional predictors.
@@ -572,7 +557,7 @@ dca(Surv(fuyrs, status==1) ~ risk_base + risk_augmented + risk_augmented_poly + 
 
 
 
-##TEST
+## TEST
 
 
 
@@ -590,14 +575,29 @@ type_subjects <- data.frame(
   log.lvmi = c(log(150), log(170), log(160))
 )
 
+type_subjects_strat <- data.frame(
+  sex = c("Male", "Female", "Male"),
+  age = c(100, 70, 65),
+  con.cabg = c("Yes", "No", "Yes"),
+  creat = c(100, 150, 120),
+  lv = c("High", "Moderate", "Low"),
+  sten.reg.mix = c("Stenosis", "Regurgitation", "Mixed"),
+  log.lvmi = c(log(150), log(170), log(160))
+)
+
+type_subjects_strat$log.lvmi_cat <- cut(type_subjects_strat$log.lvmi, breaks = quantile(data$log.lvmi, probs = seq(0, 1, by = 0.25)), include.lowest = TRUE)
+
 # Predict event risk at 5 years using both models
 risk_basic <- predict(base_model, newdata = type_subjects, type = "risk", se.fit = TRUE)
-risk_augmented_2 <- predict(augmented_model_poly, newdata = type_subjects, type = "risk", se.fit = TRUE)
+risk_augmented <- predict(augmented_model, newdata = type_subjects, type = "risk", se.fit = TRUE)
+risk_strata <- predict(stratified_model, newdata = type_subjects_strat, type = "risk", se.fit = TRUE)
 
 risk_basic
-risk_augmented_2
+risk_augmented
+risk_strata
 
 ```
+
 ```{r}
 
 

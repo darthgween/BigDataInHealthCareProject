@@ -393,18 +393,25 @@ for(var in continuous_vars_augmented) {
 ```
 
 
-## Augmented Model - Polynomial Transformation for PH
+## Augmented Model - Stratified
 
-```{r Augmented Polynomial}
-augmented_model_2 <- coxph(Surv(fuyrs, status) ~ sex + age + con.cabg + creat + lv + sten.reg.mix + strata(log.lvmi), data = data, x=T)
+```{r Augmented - Stratified Model}
+# Categorize log.lvmi into tertiles or quartiles
+data$log.lvmi_cat <- cut(data$log.lvmi, breaks = quantile(data$log.lvmi, probs = seq(0, 1, by = 0.25)), include.lowest = TRUE)
 
-summary(augmented_model_2)
+# Fit the Cox model with stratification by log.lvmi categories
+stratified_model <- coxph(Surv(fuyrs, status) ~ sex + age + con.cabg + creat + lv + sten.reg.mix + strata(log.lvmi_cat), data = data, x=T)
+summary(stratified_model)
+
+# Check proportional hazards assumption
+cox.zph_stratified <- cox.zph(stratified_model)
+print(cox.zph_stratified)
 ```
 
 ```{r Schonefeld and Martingale Residuals}
 # Evaluate the proportional hazards assumption using the cox.zph function
 # This function tests the proportional hazards assumption based on the scaled Schoenfeld residuals
-ph_test_2 <- cox.zph(augmented_model_2)
+ph_test_2 <- cox.zph(stratified_model)
 
 # Plotting the residuals to visually inspect any trend indicating non-proportionality
 plot(ph_test_2)  # This generates multiple plots if there are multiple covariates
@@ -423,13 +430,19 @@ data$risk_base<-1-as.numeric(summary(fit1,times=5)$surv)
 ```
 
 ```{r Augmented Model predictions}
-fit2<-survfit(augmented_model_2,newdata=data)
-data$risk_augmented_2<-1-as.numeric(summary(fit2,times=5)$surv)
+fit2<-survfit(augmented_model,newdata=data)
+data$risk_augmented<-1-as.numeric(summary(fit2,times=5)$surv)
+```
+
+```{r Augmented Model Stratified predictions}
+fit3<-survfit(stratified_model,newdata=data)
+data$risk_augmented_strata<-1-as.numeric(summary(fit3,times=5)$surv)
 ```
 
 
+
 ```{r Scores for ROC and Calibration Plot}
-score <- Score(list("Base"=base_model,"Augmented"=augmented_model_2),
+score <- Score(list("Base"=base_model,"Augmented"=augmented_model,"Stratified"=stratified_model),
               formula=Surv(fuyrs, status==1)~1,
               data=data,conf.int=T,
               times=seq(1,5,1),
@@ -439,13 +452,14 @@ plotCalibration(score,times=5,cens.method="local",method="quantile",q=10)
 title(main="Calibration Plot at 5 years")
 
 ```
+
 ```{r Plotting the ROC Curves}
 plotROC(score,times=5,cens.method="local")
 title(main="time-dependent ROC at 5 years")
 ```
 
 ```{r Bootstrapping for internal validation}
-CVscore <- Score(list("Base"=base_model,"Augmented"=augmented_model),
+CVscore <- Score(list("Base"=base_model,"Augmented"=augmented_model,"Stratified"=stratified_model),
               formula=Surv(fuyrs, status==1)~1,
               data=data,conf.int=T,
               times=seq(1,5,1),
@@ -456,44 +470,42 @@ summary(CVscore)
 
 
 ```{r}
+# Prediction of event risk at a fixed time-point (e.g., 5 years) for 3 "type" subjects
+# Create example subjects
 type_subjects <- data.frame(
-  sex = c(0, 1, 0),
-  age = c(60, 70, 65),
-  con.cabg = c(1, 0, 1),
+  sex = c("Male", "Female", "Male"),
+  age = c(100, 70, 65),
+  con.cabg = c("Yes", "No", "Yes"),
   creat = c(100, 150, 120),
-  lv = c(1, 2, 3),
-  sten.reg.mix = c(1, 2, 3),
+  lv = c("High", "Moderate", "Low"),
+  sten.reg.mix = c("Stenosis", "Regurgitation", "Mixed"),
   log.lvmi = c(log(150), log(170), log(160))
 )
+
+type_subjects_strat <- data.frame(
+  sex = c("Male", "Female", "Male"),
+  age = c(100, 70, 65),
+  con.cabg = c("Yes", "No", "Yes"),
+  creat = c(100, 150, 120),
+  lv = c("High", "Moderate", "Low"),
+  sten.reg.mix = c("Stenosis", "Regurgitation", "Mixed"),
+  log.lvmi = c(log(150), log(170), log(160))
+)
+
+type_subjects_strat$log.lvmi_cat <- cut(type_subjects_strat$log.lvmi, breaks = quantile(data$log.lvmi, probs = seq(0, 1, by = 0.25)), include.lowest = TRUE)
 
 # Predict event risk at 5 years using both models
 risk_basic <- predict(base_model, newdata = type_subjects, type = "risk", se.fit = TRUE)
 risk_augmented <- predict(augmented_model, newdata = type_subjects, type = "risk", se.fit = TRUE)
+risk_strata <- predict(stratified_model, newdata = type_subjects_strat, type = "risk", se.fit = TRUE)
 
-# Output risk predictions
 risk_basic
 risk_augmented
+risk_strata
 ```
 
 
-### Brier Score
-```{r}
-# indicator of death within 5 year
-data$status.5y<-ifelse(data$fuyrs<=5,1,0)
-# Brier Score
-(BS_base <- mean((data$status.5y - data$risk_base) ^ 2)) 
-(BS_augmented <- mean((data$status.5y - data$risk_augmented) ^ 2))
 
-```
-While the differences in Brier scores are small, the base model outperforms the augmented model in terms of predictive accuracy. This suggests that the additional variables included in the augmented model do not contribute positively to prediction and may even introduce noise, reducing overall performance.
-
-```{r}
-BS_basesc  <- mean(data$risk_base*(1-data$risk_base))
-BS_augmentedsc <- mean(data$risk_augmented*(1-data$risk_augmented))
-
-BS_base-BS_basesc
-BS_augmented-BS_augmentedsc
-```
 
 ### ROC AUC
 ```{r}
