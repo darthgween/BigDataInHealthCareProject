@@ -459,4 +459,16 @@ risk_basic
 risk_augmented_2
 
 ```
+```{r}
+# Predict survival probabilities at 5 years for base model
+surv_base <- survfit(base_model, newdata = type_subjects)
+risk_base_5yr <- 1 - summary(surv_base, times = 5)$surv
+risk_base_5yr
+
+
+# Predict survival probabilities at 5 years for base model
+surv_augmented <- survfit(augmented_model_2, newdata = type_subjects)
+risk_augmented_5yr <- 1 - summary(surv_augmented, times = 5)$surv
+risk_augmented_5yr
+```
 
