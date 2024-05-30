@@ -328,6 +328,7 @@ title(main="Calibration Plot at 5 years")
 plotROC(score,times=5,cens.method="local")
 title(main="time-dependent ROC at 5 years")
 ```
+
 ```{r Bootstrapping for internal validation}
 CVscore <- Score(list("Base"=base_model,"Augmented"=augmented_model),
               formula=Surv(fuyrs, status==1)~1,
@@ -429,34 +430,14 @@ library(dcurves)
 dca(Surv(fuyrs, status==1) ~ risk_base + risk_augmented, data, time = 5)
 ```
 # Model Predictions
-```{r TEST PREDICTION}
 
-
-
-# same result, using survfit:
-fit<-survfit(base_model,newdata=data.frame(sex=0,age=50,con.cabg=1,creat=1.2,lv=2,sten.reg.mix=1,log.lvmi=2.5))
-surv_patientCP<-fit$surv
-lines(bas$time, surv_patientCP, type='s', lwd=2,col=2)
-```
 
 
 ##TEST
 
 
-data$sex <- factor(data$sex, levels = c(0, 1), labels = c("Male", "Female"))
-data$con.cabg <- factor(data$con.cabg, levels = c(0, 1), labels = c("No", "Yes"))
-data$lv <- factor(data$lv, levels = c(1, 2, 3), labels = c("High", "Moderate", "Low"))
-data$sten.reg.mix <- factor(data$sten.reg.mix, levels = c(1, 2, 3), labels = c("Stenosis", "Regurgitation", "Mixed"))
 
 ```{r}
-
-# Development of the basic cox model without log.lvmi
-basic_model <- coxph(surv_obj ~ sex + age + con.cabg + creat + lv + sten.reg.mix, data = data)
-summary(basic_model)
-
-# Development of the augmented cox model including log.lvmi
-augmented_model <- coxph(surv_obj ~ sex + age + con.cabg + creat + lv + sten.reg.mix + log.lvmi, data = data)
-summary(augmented_model)
 
 # Prediction of event risk at a fixed time-point (e.g., 5 years) for 3 "type" subjects
 # Create example subjects
@@ -471,11 +452,11 @@ type_subjects <- data.frame(
 )
 
 # Predict event risk at 5 years using both models
-risk_basic <- predict(basic_model, newdata = type_subjects, type = "risk", se.fit = TRUE)
-risk_augmented <- predict(augmented_model, newdata = type_subjects, type = "risk", se.fit = TRUE)
+risk_basic <- predict(base_model, newdata = type_subjects, type = "risk", se.fit = TRUE)
+risk_augmented_2 <- predict(augmented_model_2, newdata = type_subjects, type = "risk", se.fit = TRUE)
 
 risk_basic
-risk_augmented
+risk_augmented_2
 
 ```
 
