@@ -214,33 +214,18 @@ ggplot(data, aes(x = sex, fill = sex)) +
 ## Correlation between variables
 
 ```{r Correlation Matrix}
-cor_matrix <- cor(data)
-print(cor_matrix)
+#cor_matrix <- cor(data)
+#print(cor_matrix)
 
-if (!require(corrplot)) {
+#if (!require(corrplot)) {
     install.packages("corrplot")
     library(corrplot)
-}
-corrplot(cor_matrix, method = "circle")
+#}
+#corrplot(cor_matrix, method = "circle")
 ```
 
 
-## Deep Dive: Left Ventricular Mass Index
-
-Il Left Ventricular Mass Index (LVMI) è un parametro clinico utilizzato per valutare la massa del ventricolo sinistro del cuore in relazione alla superficie corporea del paziente. È una misura importante nella diagnosi e nel monitoraggio di condizioni cardiache come l'ipertrofia ventricolare sinistra, che è un ispessimento delle pareti del ventricolo sinistro del cuore.
-
-```{r Boxplot log.lvmi - Status}
-ggplot(data, aes(x = factor(status), y = log.lvmi, fill = factor(status))) +
-  geom_boxplot() +
-  ggtitle("Boxplot of log.lvmi for Status") +
-  xlab("Status") +
-  ylab("log.lvmi") +
-  scale_fill_discrete(name = "Status")
-
-```
-
-
-```{r Boxplot log.lvmi - Age}
+```{r Scatterpot log.lvmi - Age}
 ggplot(data, aes(x = age, y = log.lvmi)) +
   geom_point(alpha = 0.5) +
   geom_smooth(method = "lm", color = "red", se = FALSE) +
@@ -411,7 +396,7 @@ for(var in continuous_vars_augmented) {
 ## Augmented Model - Polynomial Transformation for PH
 
 ```{r Augmented Polynomial}
-augmented_model_2 <- coxph(Surv(fuyrs, status) ~ sex + age + con.cabg + creat + lv + sten.reg.mix + poly(log.lvmi, 3), data = data, x=T)
+augmented_model_2 <- coxph(Surv(fuyrs, status) ~ sex + age + con.cabg + creat + lv + sten.reg.mix + strata(log.lvmi), data = data, x=T)
 
 summary(augmented_model_2)
 ```
