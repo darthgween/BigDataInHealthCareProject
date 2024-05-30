@@ -3,9 +3,56 @@ title: "data.data"
 output:
   html_document:
     df_print: paged
+editor_options: 
+  markdown: 
+    wrap: sentence
 ---
 
-# Libraries used
+**Project Big Data in Healthcare**
+
+*Alessandro Rota(798050), Matteo Mondini(902873), Alexandre Crivellari(902064), Yasmin Bouhdada(837389).*
+
+# Index
+
+1.  [Library]
+
+2.  [Importing Data]
+
+3.  [Dataset Variables]
+
+4.  [Descriptive analysis]
+
+    1.  [Dataset info]
+
+    2.  [Age analysis]
+
+    3.  [Sex analysis]
+
+    4.  [Correlation between variables]
+
+    5.  [Detailed Variable Description]
+
+5.  [Models]
+
+    1.  [Univariate Models]
+
+    2.  [Base model]
+
+    3.  [Augmented Model]
+
+    4.  [Augmented Model - Polynomial Transformation for PH]
+
+6.  [Performance Evaluation]
+
+    1.  [Calibration]
+        -   [Brier Score]
+        -   [ROC AUC]
+        -   [NET BENEFIT]
+
+7.  [Model Predictions]
+
+
+# Libraries
 
 ```{r Libraries}
 knitr::opts_chunk$set(echo = TRUE)
@@ -19,7 +66,7 @@ library(utils) #For not having to upload the txt each time
 library(riskRegression) # For performance indicators
 ```
 
-# Dataset: Uploading and Exploratory Analysis
+# Importing Data
 
 ```{r Importing data from shared GitHub}
 
@@ -29,11 +76,18 @@ data <- read.table(url, header = TRUE)
 head(data)
 ```
 
-```{r Dimensions}
-dim(data)
+```{r Transforming variables into Categoric}
+
+data$sex <- factor(data$sex, levels = c(0, 1), labels = c("Male", "Female"))
+data$con.cabg <- factor(data$con.cabg, levels = c(0, 1), labels = c("No", "Yes"))
+data$lv <- factor(data$lv, levels = c(1, 2, 3), labels = c("High", "Moderate", "Low"))
+data$sten.reg.mix <- factor(data$sten.reg.mix, levels = c(1, 2, 3), labels = c("Stenosis", "Regurgitation", "Mixed"))
+
 ```
 
-Description of dataset variables:
+# Descriptive analysis
+
+## Description of dataset variables:
 
 -   ***Paz.id***: patient identification number.
 
@@ -55,49 +109,24 @@ Description of dataset variables:
 
 -   ***sten.reg.mix***: hemodynamics of the heart valve (1 = stenosis, 2 = regurgitation, 3 = mixed).
 
-```{r Check for data structure and types}
-str(data)
-```
+### log.lvmi: Natural logarithm of the “Left Ventricular Mass Index” (standardized) measured at baseline
 
-```{r Dataset Summary for all variables}
-summary(data)
-```
+The Left Ventricular Mass Index (LVMI) is a measurement that reflects the mass of the left ventricle of the heart relative to the individual’s body surface area (BSA).
+It is an important indicator of cardiac health, often used to diagnose and monitor conditions like left ventricular hypertrophy (LVH), which is the thickening of the heart’s left ventricular walls.
 
-## Age distribution
-[SOME COMMENT HERE]
+**Normal and Balanced Values:**
 
-```{r Age Histogram}
-ggplot(data, aes(x = age)) +
-  geom_histogram(binwidth = 5, fill = "lightblue", color = "black") +
-  ggtitle("Distribuzione dell'età") +
-  xlab("Età") +
-  ylab("Frequenza")
-```
+Men:
 
-## Correlation between variables
+• Normal LVMI: less than 115 g/m²
 
-```{r Correlation Matrix}
-cor_matrix <- cor(data, use = "complete.obs")
-print(cor_matrix)
+• Logarithmic (ln) Normal LVMI: ln(115) ≈ 4.74
 
-if (!require(corrplot)) {
-    install.packages("corrplot")
-    library(corrplot)
-}
-corrplot(cor_matrix, method = "circle")
-```
-```{r Transforming variables into Categoric}
+Women:
 
-data$sex <- factor(data$sex, levels = c(0, 1), labels = c("Male", "Female"))
-data$con.cabg <- factor(data$con.cabg, levels = c(0, 1), labels = c("No", "Yes"))
-data$lv <- factor(data$lv, levels = c(1, 2, 3), labels = c("High", "Moderate", "Low"))
-data$sten.reg.mix <- factor(data$sten.reg.mix, levels = c(1, 2, 3), labels = c("Stenosis", "Regurgitation", "Mixed"))
+• Normal LVMI: less than 95 g/m²
 
-```
-
-## Deep Dive: Left Ventricular Mass Index
-
-Il Left Ventricular Mass Index (LVMI) è un parametro clinico utilizzato per valutare la massa del ventricolo sinistro del cuore in relazione alla superficie corporea del paziente. È una misura importante nella diagnosi e nel monitoraggio di condizioni cardiache come l'ipertrofia ventricolare sinistra, che è un ispessimento delle pareti del ventricolo sinistro del cuore.
+• Logarithmic (ln) Normal LVMI: ln(95) ≈ 4.55
 
 ```{r Boxplot log.lvmi - Status}
 ggplot(data, aes(x = factor(status), y = log.lvmi, fill = factor(status))) +
@@ -109,8 +138,94 @@ ggplot(data, aes(x = factor(status), y = log.lvmi, fill = factor(status))) +
 
 ```
 
+### creat: Pre-operative serum creatinine levels (µmol/L)
 
-```{r Boxplot log.lvmi - Age}
+A measure of kidney function.
+Normal levels are 44-80 µmol/L for women and 62-106 µmol/L for men.
+Elevated creatinine levels suggest renal impairment, a risk factor for surgical complications.
+
+### lv: Pre-operative left ventricular ejection fraction
+
+A measure of how well the left ventricle pumps blood with each beat.Low ejection fraction indicates heart failure and a higher surgical risk
+
+### sten.reg.mix: hemodynamics of the heart valve (1 = stenosis, 2 = regurgitation, 3 = mixed)
+
+Describes the hemodynamic characteristics of the heart valve.
+Different types of valve disease require specific surgical and medical management.
+
+## Dataset Information
+
+- Dimensions
+
+```{r Dimensions}
+dim(data)
+```
+
+- Object structure
+
+```{r Check for data structure and types}
+str(data)
+```
+- Data Summary
+
+```{r Dataset Summary for all variables}
+summary(data)
+```
+
+## Age distribution
+
+This information is crucial for understanding the demographics of the patient population and tailoring perioperative care.
+Typically, heart valve disease prevalence increases with age, with most patients being in the older age brackets.
+For instance, older patients (above 65 years) are at higher risk for complications and may require more intensive postoperative care.
+
+```{r Age Histogram}
+ggplot(data, aes(x = age)) +
+  geom_histogram(binwidth = 5, fill = "lightblue", color = "black") +
+  ggtitle("Distribuzione dell'età") +
+  xlab("Età") +
+  ylab("Frequenza")
+```
+
+## Gender distribution
+
+Out of 255 Observations 73 of them are Female and 182 are male.
+
+```{r}
+sum_males <- sum(data$sex == "Male")
+sum_females <- sum(data$sex == "Female")
+
+cat("Number of males:", sum_males, "\n")
+cat("Number of females:", sum_females, "\n")
+```
+
+- Bar plot
+
+```{r}
+ggplot(data, aes(x = sex, fill = sex)) + 
+  geom_bar() + 
+  scale_fill_manual(values = c("Male" = "blue", "Female" = "pink")) +
+  xlab("Sex") + 
+  ylab("Count") +
+  ggtitle("Distribution by Sex") +
+  theme_minimal()
+
+```
+
+## Correlation between variables
+
+```{r Correlation Matrix}
+#cor_matrix <- cor(data)
+#print(cor_matrix)
+
+#if (!require(corrplot)) {
+    install.packages("corrplot")
+    library(corrplot)
+#}
+#corrplot(cor_matrix, method = "circle")
+```
+
+
+```{r Scatterpot log.lvmi - Age}
 ggplot(data, aes(x = age, y = log.lvmi)) +
   geom_point(alpha = 0.5) +
   geom_smooth(method = "lm", color = "red", se = FALSE) +
@@ -281,7 +396,7 @@ for(var in continuous_vars_augmented) {
 ## Augmented Model - Polynomial Transformation for PH
 
 ```{r Augmented Polynomial}
-augmented_model_2 <- coxph(Surv(fuyrs, status) ~ sex + age + con.cabg + creat + lv + sten.reg.mix + poly(log.lvmi, 3), data = data, x=T)
+augmented_model_2 <- coxph(Surv(fuyrs, status) ~ sex + age + con.cabg + creat + lv + sten.reg.mix + strata(log.lvmi), data = data, x=T)
 
 summary(augmented_model_2)
 ```
@@ -458,5 +573,17 @@ risk_augmented_2 <- predict(augmented_model_2, newdata = type_subjects, type = "
 risk_basic
 risk_augmented_2
 
+```
+```{r}
+# Predict survival probabilities at 5 years for base model
+surv_base <- survfit(base_model, newdata = type_subjects)
+risk_base_5yr <- 1 - summary(surv_base, times = 5)$surv
+risk_base_5yr
+
+
+# Predict survival probabilities at 5 years for base model
+surv_augmented <- survfit(augmented_model_2, newdata = type_subjects)
+risk_augmented_5yr <- 1 - summary(surv_augmented, times = 5)$surv
+risk_augmented_5yr
 ```
 
