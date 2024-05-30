@@ -85,9 +85,6 @@ data$sten.reg.mix <- factor(data$sten.reg.mix, levels = c(1, 2, 3), labels = c("
 
 ```
 
-```{r Dimensions}
-dim(data)
-```
 # Descriptive analysis
 
 ## Description of dataset variables:
@@ -112,16 +109,74 @@ dim(data)
 
 -   ***sten.reg.mix***: hemodynamics of the heart valve (1 = stenosis, 2 = regurgitation, 3 = mixed).
 
+### log.lvmi: Natural logarithm of the “Left Ventricular Mass Index” (standardized) measured at baseline
+
+The Left Ventricular Mass Index (LVMI) is a measurement that reflects the mass of the left ventricle of the heart relative to the individual’s body surface area (BSA).
+It is an important indicator of cardiac health, often used to diagnose and monitor conditions like left ventricular hypertrophy (LVH), which is the thickening of the heart’s left ventricular walls.
+
+**Normal and Balanced Values:**
+
+Men:
+
+• Normal LVMI: less than 115 g/m²
+
+• Logarithmic (ln) Normal LVMI: ln(115) ≈ 4.74
+
+Women:
+
+• Normal LVMI: less than 95 g/m²
+
+• Logarithmic (ln) Normal LVMI: ln(95) ≈ 4.55
+
+```{r Boxplot log.lvmi - Status}
+ggplot(data, aes(x = factor(status), y = log.lvmi, fill = factor(status))) +
+  geom_boxplot() +
+  ggtitle("Boxplot of log.lvmi for Status") +
+  xlab("Status") +
+  ylab("log.lvmi") +
+  scale_fill_discrete(name = "Status")
+
+```
+
+### creat: Pre-operative serum creatinine levels (µmol/L)
+
+A measure of kidney function.
+Normal levels are 44-80 µmol/L for women and 62-106 µmol/L for men.
+Elevated creatinine levels suggest renal impairment, a risk factor for surgical complications.
+
+### lv: Pre-operative left ventricular ejection fraction
+
+A measure of how well the left ventricle pumps blood with each beat.Low ejection fraction indicates heart failure and a higher surgical risk
+
+### sten.reg.mix: hemodynamics of the heart valve (1 = stenosis, 2 = regurgitation, 3 = mixed)
+
+Describes the hemodynamic characteristics of the heart valve.
+Different types of valve disease require specific surgical and medical management.
+
+## Dataset Information
+
+- Dimensions
+
+```{r Dimensions}
+dim(data)
+```
+
+- Object structure
+
 ```{r Check for data structure and types}
 str(data)
 ```
+- Data Summary
 
 ```{r Dataset Summary for all variables}
 summary(data)
 ```
 
 ## Age distribution
-[SOME COMMENT HERE]
+
+This information is crucial for understanding the demographics of the patient population and tailoring perioperative care.
+Typically, heart valve disease prevalence increases with age, with most patients being in the older age brackets.
+For instance, older patients (above 65 years) are at higher risk for complications and may require more intensive postoperative care.
 
 ```{r Age Histogram}
 ggplot(data, aes(x = age)) +
@@ -131,10 +186,35 @@ ggplot(data, aes(x = age)) +
   ylab("Frequenza")
 ```
 
+## Gender distribution
+
+Out of 255 Observations 73 of them are Female and 182 are male.
+
+```{r}
+sum_males <- sum(data$sex == "Male")
+sum_females <- sum(data$sex == "Female")
+
+cat("Number of males:", sum_males, "\n")
+cat("Number of females:", sum_females, "\n")
+```
+
+- Bar plot
+
+```{r}
+ggplot(data, aes(x = sex, fill = sex)) + 
+  geom_bar() + 
+  scale_fill_manual(values = c("Male" = "blue", "Female" = "pink")) +
+  xlab("Sex") + 
+  ylab("Count") +
+  ggtitle("Distribution by Sex") +
+  theme_minimal()
+
+```
+
 ## Correlation between variables
 
 ```{r Correlation Matrix}
-cor_matrix <- cor(data, use = "complete.obs")
+cor_matrix <- cor(data)
 print(cor_matrix)
 
 if (!require(corrplot)) {
