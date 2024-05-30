@@ -518,6 +518,8 @@ BS_augmented-BS_augmentedsc
 
 ### ROC AUC
 ```{r}
+
+###TO DELETE
 roc1<-roc(data$status.5y, data$risk_base)
 plot(1 - roc1$specificities, roc1$sensitivities, 
      type = 'l', ylab = 'TPF', xlab = 'FPF', lwd = 3, xaxt = "n", yaxt = "n", 
@@ -555,6 +557,7 @@ legend(x = 0, y = 1, c("model1","model2"), lwd = c(3,3), lty = c(1,3), bty = 'n'
 
 
 ```{r}
+#??????
 (AUC1 <- roc1$auc)
 (AUC2 <- roc2$auc)   
 AUC2 - AUC1
@@ -563,7 +566,7 @@ AUC2 - AUC1
 
 ```{r}
 library(dcurves)
-dca(Surv(fuyrs, status==1) ~ risk_base + risk_augmented, data, time = 5)
+dca(Surv(fuyrs, status==1) ~ risk_base + risk_augmented + risk_augmented_poly + risk_augmented_strata, data, time = 5)
 ```
 # Model Predictions
 
