@@ -162,7 +162,18 @@ ggplot(data, aes(x = sex, fill = sex)) +
 Correlation matrices help identify the strength and direction of linear relationships between continuous variables.
 Understanding these relationships is crucial in clinical research as it highlights potential interactions and multicollinearity between variables.
 
+```{r Transforming variables into Categoric}
+
+data$sex <- factor(data$sex, levels = c(0, 1), labels = c("Male", "Female"))
+data$con.cabg <- factor(data$con.cabg, levels = c(0, 1), labels = c("No", "Yes"))
+data$lv <- factor(data$lv, levels = c(1, 2, 3), labels = c("High", "Moderate", "Low"))
+data$sten.reg.mix <- factor(data$sten.reg.mix, levels = c(1, 2, 3), labels = c("Stenosis", "Regurgitation", "Mixed"))
+
+```
+
+
 ```{r}
+library(corrplot)
 
 # Escludo colonna "paz.id"
 numeric_data <- data %>%
@@ -175,14 +186,7 @@ corrplot(cor_matrix, method = "color", type = "upper", order = "hclust",
          tl.col = "black", tl.srt = 45, addCoef.col = "black")
 ```
 
-```{r Transforming variables into Categoric}
 
-data$sex <- factor(data$sex, levels = c(0, 1), labels = c("Male", "Female"))
-data$con.cabg <- factor(data$con.cabg, levels = c(0, 1), labels = c("No", "Yes"))
-data$lv <- factor(data$lv, levels = c(1, 2, 3), labels = c("High", "Moderate", "Low"))
-data$sten.reg.mix <- factor(data$sten.reg.mix, levels = c(1, 2, 3), labels = c("Stenosis", "Regurgitation", "Mixed"))
-
-```
 
 ## Detailed Variable Description
 
@@ -452,7 +456,8 @@ data$risk_augmented_2<-1-as.numeric(summary(fit2,times=5)$surv)
 ```
 
 ```{r Scores for ROC and Calibration Plot}
-score <- Score(list("Base"=base_model,"Augmented"=augmented_model_2),
+library(riskRegression)
+score <- Score(list("Base"=base_model,"Augmented Poly"=augmented_model_2),
               formula=Surv(fuyrs, status==1)~1,
               data=data,conf.int=T,
               times=seq(1,5,1),
@@ -506,6 +511,8 @@ BS_base-BS_basesc
 BS_augmented-BS_augmentedsc
 ```
 
+## Discrimination
+
 ### ROC AUC
 
 ```{r}
@@ -548,7 +555,10 @@ legend(x = 0, y = 1, c("model1","model2"), lwd = c(3,3), lty = c(1,3), bty = 'n'
 AUC2 - AUC1
 ```
 
-### NET BENEFIT
+### Youden Index
+
+
+## Net Benefit
 
 ```{r}
 library(dcurves)
@@ -558,8 +568,6 @@ dca(Surv(fuyrs, status==1) ~ risk_base + risk_augmented, data, time = 5)
 # Model Predictions
 
 ```{r TEST PREDICTION}
-
-
 
 # same result, using survfit:
 fit<-survfit(base_model,newdata=data.frame(sex=0,age=50,con.cabg=1,creat=1.2,lv=2,sten.reg.mix=1,log.lvmi=2.5))
