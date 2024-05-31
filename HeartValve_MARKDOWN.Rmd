@@ -409,8 +409,17 @@ summary(stratified_model)
 cox.zph_stratified <- cox.zph(stratified_model)
 print(cox.zph_stratified)
 ```
+The new Stratified model now stratifies for the log.lvmi variable, allowing for a more cautious approach towards the Proportional Hazards assumption. Under this model:
 
-Finally, he tests for proportional hazards provided no significant evidence against the assumption for the included variables when stratified by LVMi categories. The global test p-value of 0.42 further supports the appropriateness of the model. For this reason, this model seems to be the most appropriate among the three - this theory will be further investigated while calculating for the main performance indicators.
+1. Sex (Female): The coefficient for females remains non-significant against the base model (p = 0.14608). The hazard ratio is 1.626287, indicating a 62.3% higher risk of death for females compared to males, though this difference is not statistically robust. 2. **Age**: Again, this variable stays significant across the models, each additional year of age increases the risk of death by 10.3% (p = 1.21e-06). Again, this confirms the substantial impact of age on survival post-surgery, reflecting the increased vulnerability and potential comorbidities associated with older age.
+3. **Coronary Artery Bypass Grafting (CABG) (Yes)**: The hazard ratio for CABG has slightly is now 2.016968 remaining significant (p = 0.02372).
+4. Creatinine (Creat): The effect of creatinine levels remains non-significant (p = 0.13550).
+5. **Left Ventricular Function (LV)**: The effect of moderate ventricular function, in this augmented model is now even more significant (p-value=0.03198) and the low ventricular function stays very highly significant (p-value=0.00028) with a very high hazard ratio of 5.422668. Again, low ventricular function is a strong predictor for both models, representing a significant risk factor for mortality post-surgery.
+6. **Stenosis Severity (Sten.reg.mix)**: The effect of stenosis severity remains non-significant for regurgitation (p-value=0.12958), while staying statistically significant for mixed conditions (p-value=0.01395). Compared to stenosis, mixed conditions seem to show a protective effect (HR=0.302234, or 30.22% lower risk).
+
+Again, to evaluate the functional form of continuous variables and ensure that the proportional hazards assumption holds for each covariate, we will visually inspect the Schoenfeld Residuals.
+
+Finally, the tests for proportional hazards provided no significant evidence against the assumption for the included variables when stratified by LVMi categories. The global test p-value of 0.42 further supports the appropriateness of the model. For this reason, this model seems to be the most appropriate among the three - this theory will be further investigated while calculating for the main performance indicators.
 
 ```{r Schonefeld and Martingale Residuals}
 # Evaluate the proportional hazards assumption using the cox.zph function
