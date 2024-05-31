@@ -586,6 +586,7 @@ surv_augmented <- survfit(augmented_model, newdata = type_subjects)
 risk_augmented_5yr <- 1-summary(surv_augmented, times = 5)$surv
 risk_augmented_5yr
 
+# Predict survival probabilities at 5 years for stratified model
 surv_augmented_str <- survfit(stratified_model, newdata = type_subjects_strat)
 risk_augmented_5yr_str <- 1-summary(surv_augmented_str, times = 5)$surv
 risk_augmented_5yr_str
