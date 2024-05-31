@@ -223,6 +223,13 @@ ggplot(data, aes(x = sex, fill = sex)) +
 #}
 #corrplot(cor_matrix, method = "circle")
 ```
+```{r}
+# correlation matrix con solo variabili continue:
+continuous_vars <- data[c("log.lvmi", "fuyrs", "creat", "age")] 
+cor_matrix <- cor(continuous_vars, use = "complete.obs") 
+corrplot(cor_matrix, method = "color", type = "upper", order = "hclust")  
+corrplot(cor_matrix, method = "color", type = "upper", order = "hclust",           tl.col = "black", tl.srt = 45, addCoef.col = "black")
+```
 
 
 ```{r Scatterpot log.lvmi - Age}
