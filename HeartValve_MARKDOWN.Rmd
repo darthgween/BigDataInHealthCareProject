@@ -520,7 +520,13 @@ dca(Surv(fuyrs, status==1) ~ risk_base + risk_augmented + risk_augmented_strata,
 
 The provided graph from the Decision Curve Analysis (DCA) offers a visualization of the net benefit derived from using the base and augmented Cox proportional hazards models to make clinical decisions based on a 5-year survival prediction. DCA is used to evaluate the clinical usefulness of prediction models by comparing the net benefits at various threshold probabilities.
 
-Based on the graph, both the **Base** and **Augmented** Models seem to be potentially beneficial for clinical decision-making within specific ranges of threshold probabilities: in particular, up until a threshold probability of 50% offer improvements in Net Benefit against the "Treat None" scenario.
+Based on the graph, all the three models (Base, Augmented and Stratified) show a net benefit above the 'Treat None' line, with the augmented models initially performing slightly better than the base model. This suggests that at lower decision thresholds, where accepting some risk of overtreatment is viable, both of the augmented models might provide better clinical utility.
+
+The net benefit for all models decreases as the threshold probability increases. This decrease is typical as higher thresholds require higher certainty to treat, thereby reducing the potential for net benefit unless the models are highly specific.
+
+Beyond a threshold of 50%, the net benefit of all models tends towards zero (converging with the 'Treat None' scenario), reflecting their decreasing utility in highly selective treatment scenarios.
+
+In conclusion, the Stratified model provides a slightly better net benefit at some mid-range thresholds compared to the non-stratified augmented model. The Augmented model. on the other hand, generally outperforms the base model across most thresholds, indicating that the additional variables or modifications in the augmented model enhance its predictive accuracy or align better with clinical outcomes.
 
 # Model Prediction: 3 subjects on a 5-year span
 ```{r}
