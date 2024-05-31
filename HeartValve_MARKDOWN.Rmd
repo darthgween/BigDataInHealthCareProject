@@ -441,7 +441,7 @@ fit3<-survfit(stratified_model,newdata=data)
 data$risk_augmented_strata<-1-as.numeric(summary(fit3,times=5)$surv)
 ```
 
-### Calibration: Scores Plot
+### Calibration: Plot and Brier Scores 
 
 ```{r Scores for ROC and Calibration Plot}
 score <- Score(list("Base"=base_model,"Augmented"=augmented_model,"Stratified"=stratified_model),
@@ -454,19 +454,22 @@ plotCalibration(score,times=5,cens.method="local",method="quantile",q=10)
 title(main="Calibration Plot at 5 years")
 
 ```
+The calibration plot provides a visual assessment of the performance of three Cox proportional hazards models—Base, Augmented, and Stratified—at predicting the 5-year survival outcomes for patients following heart valve implantation.
+
+The three models all indicate a fairly good calibration (with Brier scores between 11.0 and 11.3), even though the Base Model appears to underestimate the event risk more heavily than the other two models, especially at lower risk predictions (particularly at the 25% predicted risk score). This behaviour suggests that additional factors or more complex interactions may need to be considered in order to improve the models' sensitivity in these regions.
 
 
-
-### Discrimination: ROC Curves
+### Discrimination: ROC Curves and AUC
 
 ```{r Plotting the ROC Curves}
 plotROC(score,times=5,cens.method="local")
 title(main="time-dependent ROC at 5 years")
 ```
+The Receiver Operating Characteristic (ROC) curve is a critical tool used to evaluate the diagnostic ability of predictive models over a range of thresholds. This time-dependent ROC curve illustrates how well the three Cox proportional hazards models—Base, Augmented, and Stratified—discriminate between patients who experienced an event and those who did not by the 5-year follow-up.
 
+All three models significantly outperform a random classifier, as indicated by the ROC curves residing well above the diagonal line. Again, The curves of the augmented and stratified models are very close, suggesting that both models provide similar discriminative power. The stratified model does not show a clear advantage in discrimination over the augmented model, despite its slightly (apparent) better calibration, that will be investigated more further on.
 
-
-### Calibration and Discrimination: Brier Scores and AUC
+### Calibration and Discrimination: Brier Scores and AUC (comments on the graphical results)
 
 ```{r Scores}
 score <- Score(list("Base"=base_model,"Augmented"=augmented_model,"Stratified"=stratified_model),
@@ -477,7 +480,14 @@ score <- Score(list("Base"=base_model,"Augmented"=augmented_model,"Stratified"=s
 summary(score)
 ```
 
+With the Score function it is possible to evaluate and compare the performance of the three Cox proportional hazards models over a 5-year period using the comparison of Brier scores and the Area Under the Curve (AUC) of the Receiver Operating Characteristic (ROC).
+
+The *Brier score* measures the accuracy of probabilistic predictions by evaluating the mean squared difference between predicted probabilities and the actual outcomes. The comparisons between models generally show minor differences, with no significant improvements noted in the augmented or stratified models compared to the base model. This suggests that while stratification and augmentation may affect discrimination (as seen in AUC), they do not significantly enhance the overall accuracy of the probability predictions.
+
+The *AUC Analysis* confirms a general good discriminative ability for all three models (with a notable peak at year 1 for the Stratified model, with an AUC score of 87.3%), although the improvements of both the Augmented and Stratified model over the Base one seem to be statistically non-significant, suggesting modest benefits from including additional variables (log.lvmi) and stratification.
+
 ### Internal Validation 
+
 ```{r Bootstrapping for internal validation}
 Bootscore <- Score(list("Base"=base_model,"Augmented"=augmented_model,"Stratified"=stratified_model),
               formula=Surv(fuyrs, status==1)~1,
@@ -488,7 +498,22 @@ Bootscore <- Score(list("Base"=base_model,"Augmented"=augmented_model,"Stratifie
 summary(Bootscore)
 ```
 
+In order to secure an internal validation of the model comparison, bootstrap validation has been employed (over the 5-year period) - indicating that a statistical significant improvement in the models (either from a decrease in the Brier Scores or an increase in the AUC) is not present.
 
+In conclusion, by *roughly* accepting the Proportional Hazards assumption as *not violated* for the **Augmented** version of the model, it is possible to interpret it as the most efficient in evaluating and predicting the risks of event.
+
+## Net Benefit
+
+```{r}
+library(dcurves)
+dca(Surv(fuyrs, status==1) ~ risk_base + risk_augmented, data, time = 5)
+```
+
+The provided graph from the Decision Curve Analysis (DCA) offers a visualization of the net benefit derived from using the base and augmented Cox proportional hazards models to make clinical decisions based on a 5-year survival prediction. DCA is used to evaluate the clinical usefulness of prediction models by comparing the net benefits at various threshold probabilities.
+
+Based on the graph, both the **Base** and **Augmented** Models seem to be potentially beneficial for clinical decision-making within specific ranges of threshold probabilities: in particular, up until a threshold probability of 50% offer improvements in Net Benefit against the "Treat None" scenario.
+
+# Model Prediction: 3 subjects on a 5-year span
 ```{r}
 # Prediction of event risk at a fixed time-point (e.g., 5 years) for 3 "type" subjects
 # Create example subjects
@@ -523,105 +548,12 @@ risk_basic
 risk_augmented
 risk_strata
 ```
+The three example subjects considered for testing the predictive capabilities of the models are defined as follows:
 
+**Subject 1**: Male, 100 years old, with coronary artery bypass grafting (CABG), creatinine level of 100, high left ventricular function, stenosis, and log(LVMi) of approximately 5.01.
 
+**Subject 2**: Female, 70 years old, without CABG, creatinine level of 150, moderate left ventricular function, regurgitation, and log(LVMi) of approximately 5.14.
 
+**Subject 3**: Male, 65 years old, with CABG, creatinine level of 120, low left ventricular function, mixed valve hemodynamics, and log(LVMi) of approximately 5.08.
 
-### ROC AUC
-
-```{r}
-head(data)
-```
-
-
-```{r}
-roc1<-roc(data$status.5y, data$risk_base)
-plot(1 - roc1$specificities, roc1$sensitivities, 
-     type = 'l', ylab = 'TPF', xlab = 'FPF', lwd = 3, xaxt = "n", yaxt = "n", 
-     xlim = c(0,1), cex.lab = 1.7, frame = F)
-axis(1, at = c(0,0.25,0.5,0.75,1), labels = NA, pos = 0)
-axis(1, at = c(0,0.25,0.5,0.75,1), labels = c(0,0.25,0.5,0.75,1), cex.axis = 1.7, pos = 0)
-axis(2, at = c(0,0.25,0.5,0.75,1), labels = c(0,0.25,0.5,0.75,1), cex.axis = 1.7, pos = 0)
-Youden1<-roc1$sensitivities+roc1$specificities-1
-optimal.cut.off1<-roc1$thresholds[Youden1==max(Youden1)]
-cbind(optimal.cut.off1,Youden=max(Youden1))
-points(1-roc1$specificities[roc1$thresholds==optimal.cut.off1],roc1$sensitivities[roc1$thresholds==optimal.cut.off1],pch=0,cex=1.7)
-
-roc2<-roc(data$status.5y, data$risk_augmented)
-
-lines(1 - roc2$specificities, roc2$sensitivities, 
-      lwd = 3, lty = 3)
-Youden2<-roc2$sensitivities+roc2$specificities-1
-optimal.cut.off2<-roc2$thresholds[Youden2==max(Youden2)]
-cbind(optimal.cut.off2,Youden=max(Youden2))
-
-
-points(1-roc2$specificities[roc2$thresholds==optimal.cut.off2],roc2$sensitivities[roc2$thresholds==optimal.cut.off2],pch=0,cex=1.7)
-
-# Chance line:
-abline(a=0, b=1, lty = 2, lwd = 2)
-lines(c(0,1), c(1,1), lty = 1)
-lines(c(1,1), c(0,1), lty = 1)
-
-legend(x = 0, y = 1, c("model1","model2"), lwd = c(3,3), lty = c(1,3), bty = 'n', cex = 1.7)
-
-
-```
-
-
-
-
-```{r}
-(AUC1 <- roc1$auc)
-(AUC2 <- roc2$auc)   
-AUC2 - AUC1
-```
-###NET BENEFIT
-
-```{r}
-library(dcurves)
-dca(Surv(fuyrs, status==1) ~ risk_base + risk_augmented, data, time = 5)
-```
-# Model Predictions
-
-
-
-##TEST
-
-
-
-```{r}
-
-# Prediction of event risk at a fixed time-point (e.g., 5 years) for 3 "type" subjects
-# Create example subjects
-type_subjects <- data.frame(
-  sex = c("Male", "Female", "Male"),
-  age = c(60, 70, 65),
-  con.cabg = c("Yes", "No", "Yes"),
-  creat = c(100, 150, 120),
-  lv = c("High", "Moderate", "Low"),
-  sten.reg.mix = c("Stenosis", "Regurgitation", "Mixed"),
-  log.lvmi = c(log(150), log(170), log(160))
-)
-
-# Predict event risk at 5 years using both models
-risk_basic <- predict(base_model, newdata = type_subjects, type = "risk", se.fit = TRUE)
-risk_augmented_2 <- predict(augmented_model_2, newdata = type_subjects, type = "risk", se.fit = TRUE)
-
-risk_basic
-risk_augmented_2
-
-```
-```{r}
-# Predict survival probabilities at 5 years for base model
-surv_base <- survfit(base_model, newdata = type_subjects)
-risk_base_5yr <- 1 - summary(surv_base, times = 5)$surv
-risk_base_5yr
-
-
-# Predict survival probabilities at 5 years for base model
-surv_augmented <- survfit(augmented_model_2, newdata = type_subjects)
-risk_augmented_5yr <- 1 - summary(surv_augmented, times = 5)$surv
-risk_augmented_5yr
-```
-
+The **Base** and **Augmented** models yield similar risk predictions for all subjects, with higher risk observed for the oldest subject (Subject 1), particularly in the augmented model, suggesting a slightly higher sensitivity to the variables included beyond the base model. The risk estimates for Subjects 2 and 3 are relatively low in both models, indicating lesser influence of their characteristics on the outcome according to these models. The **Stratified** model shows notably lower risk predictions for all subjects, especially for Subject 1. This suggests that the stratification based on log(LVMi) categories significantly impacts the model's risk assessment, potentially adjusting for the variable non-proportionality and specific subgroup characteristics.
