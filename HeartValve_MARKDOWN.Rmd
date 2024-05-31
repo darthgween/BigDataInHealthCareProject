@@ -515,7 +515,7 @@ In conclusion, by *roughly* accepting the Proportional Hazards assumption as *no
 
 ```{r}
 library(dcurves)
-dca(Surv(fuyrs, status==1) ~ risk_base + risk_augmented, data, time = 5)
+dca(Surv(fuyrs, status==1) ~ risk_base + risk_augmented + risk_augmented_strata, data, time = 5)
 ```
 
 The provided graph from the Decision Curve Analysis (DCA) offers a visualization of the net benefit derived from using the base and augmented Cox proportional hazards models to make clinical decisions based on a 5-year survival prediction. DCA is used to evaluate the clinical usefulness of prediction models by comparing the net benefits at various threshold probabilities.
