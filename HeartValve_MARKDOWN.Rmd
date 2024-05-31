@@ -536,9 +536,23 @@ Beyond a threshold of 50%, the net benefit of all models tends towards zero (con
 In conclusion, the Stratified model provides a slightly better net benefit at some mid-range thresholds compared to the non-stratified augmented model. The Augmented model. on the other hand, generally outperforms the base model across most thresholds, indicating that the additional variables or modifications in the augmented model enhance its predictive accuracy or align better with clinical outcomes.
 
 # Model Prediction: 3 subjects on a 5-year span
+
+The three example subjects considered for testing the predictive capabilities of the models are defined as follows:
+
+**Subject 1**: Male, 100 years old, with coronary artery bypass grafting (CABG), creatinine level of 100, high left ventricular function, stenosis, and log(LVMi) of approximately 5.01.
+
+**Subject 2**: Female, 70 years old, without CABG, creatinine level of 150, moderate left ventricular function, regurgitation, and log(LVMi) of approximately 5.14.
+
+**Subject 3**: Male, 65 years old, with CABG, creatinine level of 120, low left ventricular function, mixed valve hemodynamics, and log(LVMi) of approximately 5.08.
+
+The **Base** and **Augmented** models yield similar risk predictions for all subjects, with higher risk observed for the oldest subject (Subject 1), particularly in the augmented model, suggesting a slightly higher sensitivity to the variables included beyond the base model. The risk estimates for Subjects 2 and 3 are relatively low in both models, indicating lesser influence of their characteristics on the outcome according to these models. The **Stratified** model shows notably lower risk predictions for all subjects, especially for Subject 1. This suggests that the stratification based on log(LVMi) categories significantly impacts the model's risk assessment, potentially adjusting for the variable non-proportionality and specific subgroup characteristics.
+
+
+
+
 ```{r}
-# Prediction of event risk at a fixed time-point (e.g., 5 years) for 3 "type" subjects
-# Create example subjects
+
+
 type_subjects <- data.frame(
   sex = c("Male", "Female", "Male"),
   age = c(100, 70, 65),
@@ -561,42 +575,6 @@ type_subjects_strat <- data.frame(
 
 type_subjects_strat$log.lvmi_cat <- cut(type_subjects_strat$log.lvmi, breaks = quantile(data$log.lvmi, probs = seq(0, 1, by = 0.25)), include.lowest = TRUE)
 
-# Predict event risk at 5 years using both models
-risk_basic <- predict(base_model, newdata = type_subjects, type = "risk", se.fit = TRUE)
-risk_augmented <- predict(augmented_model, newdata = type_subjects, type = "risk", se.fit = TRUE)
-risk_strata <- predict(stratified_model, newdata = type_subjects_strat, type = "risk", se.fit = TRUE)
-
-risk_basic
-risk_augmented
-risk_strata
-```
-The three example subjects considered for testing the predictive capabilities of the models are defined as follows:
-
-**Subject 1**: Male, 100 years old, with coronary artery bypass grafting (CABG), creatinine level of 100, high left ventricular function, stenosis, and log(LVMi) of approximately 5.01.
-
-**Subject 2**: Female, 70 years old, without CABG, creatinine level of 150, moderate left ventricular function, regurgitation, and log(LVMi) of approximately 5.14.
-
-**Subject 3**: Male, 65 years old, with CABG, creatinine level of 120, low left ventricular function, mixed valve hemodynamics, and log(LVMi) of approximately 5.08.
-
-The **Base** and **Augmented** models yield similar risk predictions for all subjects, with higher risk observed for the oldest subject (Subject 1), particularly in the augmented model, suggesting a slightly higher sensitivity to the variables included beyond the base model. The risk estimates for Subjects 2 and 3 are relatively low in both models, indicating lesser influence of their characteristics on the outcome according to these models. The **Stratified** model shows notably lower risk predictions for all subjects, especially for Subject 1. This suggests that the stratification based on log(LVMi) categories significantly impacts the model's risk assessment, potentially adjusting for the variable non-proportionality and specific subgroup characteristics.
-
-
-
-
-```{r}
-
-
-# Create example subjects
-type_subjects <- data.frame(
-  sex = c("Male", "Male", "Male"),
-  age = c(70, 80, 70),
-  con.cabg = c("No", "Yes", "Yes"),
-  creat = c(130, 150, 130),
-  lv = c("Moderate", "High", "Moderate"),
-  sten.reg.mix = c("Mixed", "Mixed", "Mixed"),
-  log.lvmi = c(log(160), log(200), log(160))
-)
-
 # Predict survival probabilities at 5 years for base model
 surv_base <- survfit(base_model, newdata = type_subjects)
 risk_base_5yr <- 1-summary(surv_base, times = 5)$surv
@@ -604,7 +582,11 @@ risk_base_5yr
 
 
 # Predict survival probabilities at 5 years for augmented model
-surv_augmented <- survfit(augmented_model_poly, newdata = type_subjects)
+surv_augmented <- survfit(augmented_model, newdata = type_subjects)
 risk_augmented_5yr <- 1-summary(surv_augmented, times = 5)$surv
 risk_augmented_5yr
+
+surv_augmented_str <- survfit(stratified_model, newdata = type_subjects_strat)
+risk_augmented_5yr_str <- 1-summary(surv_augmented_str, times = 5)$surv
+risk_augmented_5yr_str
 ```
