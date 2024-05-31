@@ -181,9 +181,9 @@ For instance, older patients (above 65 years) are at higher risk for complicatio
 ```{r Age Histogram}
 ggplot(data, aes(x = age)) +
   geom_histogram(binwidth = 5, fill = "lightblue", color = "black") +
-  ggtitle("Distribuzione dell'età") +
-  xlab("Età") +
-  ylab("Frequenza")
+  ggtitle("Age Distribution") +
+  xlab("Age") +
+  ylab("Frequency")
 ```
 
 ## Gender distribution
@@ -266,7 +266,7 @@ for (var in variables) {
   univariate_models[[var]] <- model
 }
 ```
-Belowa list of R code snippets is provided, in order to easily access each Univariate model, independently.
+Below list of R code snippets is provided, in order to easily access each Univariate model, independently.
 
 ```{r Univariate Left Ventricular Mass Index}
 univariate_models[["log.lvmi"]]
@@ -318,7 +318,6 @@ Overall, the base model suggests that age, coronary artery bypass grafting, left
 
 The model has moderate predictive accuracy (Concordance = 0.783) and overall good fit according to model fit tests.
 
-
 To evaluate the functional form of continuous variables and ensure that the proportional hazards assumption holds for each covariate, we will visually inspect the Schoenfeld Residuals. Moreover, we will check the linearity of each continuous variable against the null model (without covariates).
 
 ```{r Schoenfeld and Martingale Residuals}
@@ -346,7 +345,8 @@ for(var in continuous_vars) {
 }
 
 ```
-
+The cox.zph function was used to compute the Schoenfeld and Martingale residuals, which are needed for testing the proportional hazards and linearity of the continuous variable assumptions. Each covariate's residuals are tested to see if they are  independent against time (which they should be if the proportional hazards assumption holds true).
+The output provided indicates, both graphically and from the p-value table, that no covariate show evidence against the proportional hazards assumptions. The GLOBAL result, with a p-value of 0.84, suggests that the covariates satisfy (overall) the proportional hazards assumption of the model.
 
 ## Augmented Model
 
@@ -391,7 +391,9 @@ for(var in continuous_vars_augmented) {
   abline(h = 0, col = "red")  # Horizontal line at zero to aid in visual assessment
 }
 ```
+In this case, the graphical result for the newly introduced log.lvmi variable show a *plausible* violation of the Proportional Hazards assumption, with a slight increasing trend of the coefficient as a dependance of time and another slight visual concavity. The p-value of the test (equal to 0.012) would suggest to interpret the Proportional Hazards assumption as invalid, although the graphical trend would not seem too definitive to rule it out too strongly.
 
+In this situation of uncertainty, we have decided to implement a *stratification* of the model using the Strata function for log.lvmi, in order to obtain an additional model that would more strongly maintain the Proportional Hazards assumption for the interpretability of the results.
 
 ## Augmented Model - Stratified
 
@@ -408,6 +410,8 @@ cox.zph_stratified <- cox.zph(stratified_model)
 print(cox.zph_stratified)
 ```
 
+Finally, he tests for proportional hazards provided no significant evidence against the assumption for the included variables when stratified by LVMi categories. The global test p-value of 0.42 further supports the appropriateness of the model. For this reason, this model seems to be the most appropriate among the three - this theory will be further investigated while calculating for the main performance indicators.
+
 ```{r Schonefeld and Martingale Residuals}
 # Evaluate the proportional hazards assumption using the cox.zph function
 # This function tests the proportional hazards assumption based on the scaled Schoenfeld residuals
@@ -421,8 +425,6 @@ print(ph_test_2) # Displays test statistics and p-values for each covariate
 ```
 
 # Performance Evaluation
-
-## Calibration
 
 ```{r Base Model predictions}
 fit1<-survfit(base_model,newdata=data)
@@ -439,7 +441,7 @@ fit3<-survfit(stratified_model,newdata=data)
 data$risk_augmented_strata<-1-as.numeric(summary(fit3,times=5)$surv)
 ```
 
-
+### Calibration: Scores Plot
 
 ```{r Scores for ROC and Calibration Plot}
 score <- Score(list("Base"=base_model,"Augmented"=augmented_model,"Stratified"=stratified_model),
@@ -453,19 +455,37 @@ title(main="Calibration Plot at 5 years")
 
 ```
 
+
+
+### Discrimination: ROC Curves
+
 ```{r Plotting the ROC Curves}
 plotROC(score,times=5,cens.method="local")
 title(main="time-dependent ROC at 5 years")
 ```
 
+
+
+### Calibration and Discrimination: Brier Scores and AUC
+
+```{r Scores}
+score <- Score(list("Base"=base_model,"Augmented"=augmented_model,"Stratified"=stratified_model),
+              formula=Surv(fuyrs, status==1)~1,
+              data=data,conf.int=T,
+              times=seq(1,5,1))
+
+summary(score)
+```
+
+### Internal Validation 
 ```{r Bootstrapping for internal validation}
-CVscore <- Score(list("Base"=base_model,"Augmented"=augmented_model,"Stratified"=stratified_model),
+Bootscore <- Score(list("Base"=base_model,"Augmented"=augmented_model,"Stratified"=stratified_model),
               formula=Surv(fuyrs, status==1)~1,
               data=data,conf.int=T,
               times=seq(1,5,1),
               split.method="loob",B=100,seed=1000)
 
-summary(CVscore)
+summary(Bootscore)
 ```
 
 
@@ -508,6 +528,12 @@ risk_strata
 
 
 ### ROC AUC
+
+```{r}
+head(data)
+```
+
+
 ```{r}
 roc1<-roc(data$status.5y, data$risk_base)
 plot(1 - roc1$specificities, roc1$sensitivities, 
