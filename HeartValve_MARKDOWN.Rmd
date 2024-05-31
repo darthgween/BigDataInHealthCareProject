@@ -579,3 +579,32 @@ The three example subjects considered for testing the predictive capabilities of
 **Subject 3**: Male, 65 years old, with CABG, creatinine level of 120, low left ventricular function, mixed valve hemodynamics, and log(LVMi) of approximately 5.08.
 
 The **Base** and **Augmented** models yield similar risk predictions for all subjects, with higher risk observed for the oldest subject (Subject 1), particularly in the augmented model, suggesting a slightly higher sensitivity to the variables included beyond the base model. The risk estimates for Subjects 2 and 3 are relatively low in both models, indicating lesser influence of their characteristics on the outcome according to these models. The **Stratified** model shows notably lower risk predictions for all subjects, especially for Subject 1. This suggests that the stratification based on log(LVMi) categories significantly impacts the model's risk assessment, potentially adjusting for the variable non-proportionality and specific subgroup characteristics.
+
+
+
+
+```{r}
+
+
+# Create example subjects
+type_subjects <- data.frame(
+  sex = c("Male", "Male", "Male"),
+  age = c(70, 80, 70),
+  con.cabg = c("No", "Yes", "Yes"),
+  creat = c(130, 150, 130),
+  lv = c("Moderate", "High", "Moderate"),
+  sten.reg.mix = c("Mixed", "Mixed", "Mixed"),
+  log.lvmi = c(log(160), log(200), log(160))
+)
+
+# Predict survival probabilities at 5 years for base model
+surv_base <- survfit(base_model, newdata = type_subjects)
+risk_base_5yr <- 1-summary(surv_base, times = 5)$surv
+risk_base_5yr
+
+
+# Predict survival probabilities at 5 years for augmented model
+surv_augmented <- survfit(augmented_model_poly, newdata = type_subjects)
+risk_augmented_5yr <- 1-summary(surv_augmented, times = 5)$surv
+risk_augmented_5yr
+```
